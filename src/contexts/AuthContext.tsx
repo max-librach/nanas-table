@@ -45,32 +45,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     console.log('Current domain:', window.location.hostname);
     console.log('Auth domain configured:', auth.app.options.authDomain);
     
-    // Set persistence based on device type
     const initializePersistence = async () => {
       try {
-        // Use different persistence strategies based on browser capabilities
-        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-        const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
-        
-        let persistence;
-        if (isMobile && isSafari) {
-          // Safari mobile has the most restrictions, use in-memory
-          persistence = inMemoryPersistence;
-          console.log('Using in-memory persistence for Safari mobile');
-        } else if (isMobile) {
-          // Other mobile browsers, use session
-          persistence = browserSessionPersistence;
-          console.log('Using session persistence for mobile');
-        } else {
-          // Desktop, use local
-          persistence = browserLocalPersistence;
-          console.log('Using local persistence for desktop');
-        }
-        
-        await setPersistence(auth, persistence);
+        await setPersistence(auth, browserLocalPersistence);
+        console.log('Using local persistence for all browsers');
       } catch (err) {
-        console.error('Failed to set auth persistence:', err);
-        // If persistence fails, continue anyway
+        console.error('Failed to set auth persistence:', (err as Error));
       }
     };
     
@@ -81,43 +61,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       try {
         console.log('Checking for redirect result...');
         const result = await getRedirectResult(auth);
-        if (result) {
-          const email = result.user.email;
-          console.log('Redirect result:', email);
-          
-          if (!email || !(email in FAMILY_MEMBERS)) {
-            await firebaseSignOut(auth);
-            setError('Sorry, this site is private to the Librach/Nagar family.');
-            setAuthAttempted(true);
-            return;
-          }
-          
-          console.log('Successful redirect authentication, reloading auth state');
+        if (result && result.user) {
+          console.log('Redirect sign-in successful:', result.user.email);
           setAuthAttempted(true);
-        } else {
-          console.log('No redirect result found');
+          setLoading(false);
         }
       } catch (err) {
-        console.error('Redirect result error:', err);
+        setError('Failed to complete sign in. Please try again.');
+        setLoading(false);
         setAuthAttempted(true);
-        
-        // Handle specific error cases
-        if (err.message?.includes('missing initial state')) {
-          console.log('Missing initial state - likely a page refresh, not showing error');
-          // This often happens on page refresh and isn't a real error
-        } else if (err.message?.includes('popup-closed-by-user')) {
-          setError('Sign-in was cancelled. Please try again.');
-        } else if (err.message?.includes('network-request-failed')) {
-          setError('Network error. Please check your connection and try again.');
-        } else {
-          setError('Authentication failed. Please try again.');
-        }
+        console.error('Redirect result error:', (err as Error));
       }
     };
 
     handleRedirectResult();
     
-    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser: FirebaseUser | null) => {
       console.log('Auth state changed:', !!firebaseUser, firebaseUser?.email);
 
       if (firebaseUser) {
@@ -151,7 +110,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
 
     return unsubscribe;
-  }, [authAttempted]);
+  }, []);
 
   // Detect if we're on mobile
   const isMobile = () => {
@@ -180,19 +139,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setError(null);
       setLoading(true);
       setAuthAttempted(false);
-      
       const provider = new GoogleAuthProvider();
-      
       provider.setCustomParameters({
         prompt: 'select_account',
       });
-      
       console.log('Browser info:', { 
         mobile: isMobile(), 
         safari: isSafari(),
         userAgent: navigator.userAgent.substring(0, 50)
       });
-      
       // Try popup first for ALL browsers
       console.log('Trying popup authentication...');
       try {
@@ -201,68 +156,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setAuthAttempted(true);
         setLoading(false);
         return;
-      } catch (popupError: any) {
-        console.log('Popup failed, trying redirect fallback:', popupError.code);
-        
-        // If popup fails, try redirect as fallback
-        if (popupError.code === 'auth/popup-blocked' || 
-            popupError.code === 'auth/popup-closed-by-user' ||
-            popupError.code === 'auth/cancelled-popup-request') {
-          
-          console.log('Using redirect as fallback...');
-          try {
-            // Clear auth state before redirect
-            if (auth.currentUser) {
-              await firebaseSignOut(auth);
-            }
-            
-            // Clear cached auth state
-            try {
-              localStorage.removeItem('firebase:authUser:' + auth.app.options.apiKey + ':[DEFAULT]');
-              sessionStorage.clear();
-            } catch (storageError) {
-              console.warn('Could not clear storage:', storageError);
-            }
-            
-            await new Promise(resolve => setTimeout(resolve, 500));
-            await signInWithRedirect(auth, provider);
-            return;
-          } catch (redirectError) {
-            console.error('Redirect also failed:', redirectError);
-            setAuthAttempted(true);
-            throw redirectError;
-          }
-        } else {
-          // Other popup errors
-          setAuthAttempted(true);
-          throw popupError;
-        }
+      } catch (err) {
+        console.warn('Popup sign-in failed, falling back to redirect:', (err as Error));
+        // Fallback to redirect
+        await signInWithRedirect(auth, provider);
       }
     } catch (err) {
-      console.error('Sign in error:', err);
-      setAuthAttempted(true);
+      setError('Failed to sign in. Please try again.');
       setLoading(false);
-      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-      
-      // Simplified error handling
-      if (err.code === 'auth/popup-closed-by-user') {
-        setError('Sign-in was cancelled. Please try again.');
-      } else if (err.code === 'auth/network-request-failed') {
-        setError('Network error. Please check your connection and try again.');
-      } else if (err.code === 'auth/popup-blocked') {
-        setError('Popups are blocked. Please allow popups for this site and try again.');
-      } else if (err.code === 'auth/unauthorized-domain') {
-        setError('Domain not authorized. Please contact support.');
-      } else {
-        // Generic error with browser-specific advice
-        if (isSafari()) {
-          setError('Safari authentication failed. Try: 1) Safari Settings → Privacy → Turn OFF "Prevent Cross-Site Tracking" 2) Clear website data 3) Try Chrome browser');
-        } else if (isMobile()) {
-          setError('Mobile authentication failed. Try: 1) Use Chrome browser 2) Clear browser data 3) Disable private browsing 4) Enable cookies');
-        } else {
-          setError('Authentication failed. Try: 1) Allow popups 2) Clear browser data 3) Disable ad blockers 4) Enable cookies');
-        }
-      }
+      setAuthAttempted(true);
+      console.error('Sign in error:', (err as Error));
     }
   };
 
