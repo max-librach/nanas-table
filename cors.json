@@ -1,0 +1,27 @@
+[
+  {
+    "origin": [
+      "https://nanastable.me",
+      "https://www.nanastable.me",
+      "https://nana-s-table.firebaseapp.com",
+      "https://nana-s-table.web.app",
+      "https://vercel.app",
+      "http://localhost:5173",
+      "http://localhost:3000",
+      "http://127.0.0.1:5173"
+    ],
+    "method": ["GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD"],
+    "maxAgeSeconds": 3600,
+    "responseHeader": [
+      "Content-Type",
+      "Authorization", 
+      "Content-Length",
+      "User-Agent",
+      "x-goog-*",
+      "x-firebase-*",
+      "Access-Control-Allow-Origin",
+      "Access-Control-Allow-Methods",
+      "Access-Control-Allow-Headers"
+    ]
+  }
+]
