@@ -61,7 +61,11 @@ export const sendMemoryEmail = onDocumentCreated("memories/{memoryId}", async (e
   console.log('sendMemoryEmail: eventCode:', eventCode, 'url:', url);
 
   const recipients = [
-    "maxlibrach@gmail.com"
+    "maxlibrach@gmail.com",
+    "ashley.maheris@gmail.com",
+    "glibrach@gmail.com",
+    "miriam.librach@gmail.com",
+    "erez.nagar@gmail.com"
   ];
 
   const subject = `Share your memories from ${eventLabel}`;
@@ -90,8 +94,3 @@ Max
     text: body,
   });
 });
-
-// export const helloWorld = onRequest((request, response) => {
-//   logger.info("Hello logs!", {structuredData: true});
-//   response.send("Hello from Firebase!");
-// });

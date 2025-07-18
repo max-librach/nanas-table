@@ -12,6 +12,7 @@ import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardDescription, CardTitle } from '../components/ui/card';
 import { useAuth } from '../contexts/AuthContext';
+import { useSwipeable } from 'react-swipeable';
 
 export const TimelinePage: React.FC = () => {
   const navigate = useNavigate();
@@ -222,6 +223,15 @@ const GridMemoryCard: React.FC<GridMemoryCardProps> = ({ memory, onContribute, o
     touchEndX.current = null;
   };
 
+  // react-swipeable handlers for mobile
+  const handlers = useSwipeable({
+    onSwipedLeft: () => nextPhoto(),
+    onSwipedRight: () => prevPhoto(),
+    preventScrollOnSwipe: true,
+    trackMouse: false,
+    delta: 20,
+  });
+
   const displayTitle = memory.occasion === 'Holiday Meal' ? memory.holiday : memory.occasion;
   const latestNote = memory.notes.length > 0 ? memory.notes[memory.notes.length - 1] : null;
 
@@ -233,9 +243,7 @@ const GridMemoryCard: React.FC<GridMemoryCardProps> = ({ memory, onContribute, o
           <div className="relative" onMouseEnter={() => setIsHovered(true)} onMouseLeave={() => setIsHovered(false)}>
             <div
               className="aspect-square rounded-lg overflow-hidden bg-gradient-to-br from-orange-100 to-pink-100 relative"
-              onTouchStart={handleTouchStart}
-              onTouchMove={handleTouchMove}
-              onTouchEnd={handleTouchEnd}
+              {...(isMobile ? handlers : {})}
             >
               {memory.media.length > 0 ? (
                 <>
