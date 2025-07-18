@@ -145,17 +145,20 @@ export const CreateMemoryPage: React.FC = () => {
       // Separate media files from memory data
       const { media: mediaFiles, mediaCaptions, ...memoryDataWithoutMedia } = formData;
       
-      // Clean up the memory data to remove any undefined/null values
+      // Clean up the memory data to remove any undefined/null values, but always keep createdByName
       const memoryData = {
         ...memoryDataWithoutMedia,
         attendees: selectedAttendees,
         otherAttendees: attendees['Other'] && otherAttendee.trim() ? otherAttendee.trim() : undefined,
-        createdBy: user.id
+        createdBy: user.id,
+        createdByName: user.displayName || ''
       };
       
-      // Remove undefined values to prevent Firestore errors
+      // Remove undefined/null/empty values except for createdByName
       const cleanMemoryData = Object.fromEntries(
-        Object.entries(memoryData).filter(([_, value]) => value !== undefined && value !== null && value !== '')
+        Object.entries(memoryData).filter(([key, value]) =>
+          key === 'createdByName' || (value !== undefined && value !== null && value !== '')
+        )
       );
       
       console.log('Final memory data:', cleanMemoryData);

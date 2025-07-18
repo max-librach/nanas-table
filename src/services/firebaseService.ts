@@ -51,10 +51,15 @@ export const createMemory = async (memoryData: Omit<Memory, 'id' | 'createdAt' |
     );
     
     // Generate eventCode: YYYY-MM-DD or YYYY-MM-DD-N
-    const dateStr = memoryData.date.slice(0, 10); // assumes ISO string
-    const memoriesQuery = query(collection(db, 'memories'), where('date', '>=', `${dateStr}T00:00:00`), where('date', '<=', `${dateStr}T23:59:59`));
-    const querySnapshot = await getDocs(memoriesQuery);
+    // Use the local date as entered by the user, do not convert to UTC
+    const localDate = new Date(memoryData.date);
+    const year = localDate.getFullYear();
+    const month = String(localDate.getMonth() + 1).padStart(2, '0');
+    const day = String(localDate.getDate()).padStart(2, '0');
+    const dateStr = `${year}-${month}-${day}`;
+    const memoriesQuery = query(collection(db, 'memories'), where('date', '>=', dateStr), where('date', '<=', dateStr));
     let eventCode = dateStr;
+    const querySnapshot = await getDocs(memoriesQuery);
     if (!querySnapshot.empty) {
       // Check for existing codes to avoid duplicates
       const existingCodes = querySnapshot.docs.map(doc => doc.data().eventCode).filter(Boolean);
@@ -69,6 +74,7 @@ export const createMemory = async (memoryData: Omit<Memory, 'id' | 'createdAt' |
     
     const finalData = {
       ...cleanedData,
+      date: dateStr, // Store as YYYY-MM-DD
       eventCode,
       createdAt: Timestamp.now().toDate().toISOString(),
       notes: [],

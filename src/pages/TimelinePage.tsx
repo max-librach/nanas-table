@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { format } from 'date-fns';
+import { format, parse } from 'date-fns';
 import { Calendar, Users, ChefHat, Star, Camera, Eye, Plus, Heart, Video, ChevronLeft, ChevronRight, Trash2, MoreVertical } from 'lucide-react';
 import { Header } from '../components/Header';
 import { VideoPlayer } from '../components/VideoPlayer';
@@ -120,6 +120,7 @@ export const TimelinePage: React.FC = () => {
                 onContribute={handleContribute}
                 onViewDetails={() => navigate(`/memory/${memory.eventCode}`)}
                 onDelete={isAdmin ? () => handleDeleteMemory(memory) : undefined}
+                isAdmin={isAdmin}
               />
             ))}
           </div>
@@ -157,9 +158,10 @@ interface GridMemoryCardProps {
   onContribute: (memory: Memory) => void;
   onViewDetails: () => void;
   onDelete?: () => void;
+  isAdmin?: boolean;
 }
 
-const GridMemoryCard: React.FC<GridMemoryCardProps> = ({ memory, onContribute, onViewDetails, onDelete }) => {
+const GridMemoryCard: React.FC<GridMemoryCardProps> = ({ memory, onContribute, onViewDetails, onDelete, isAdmin }) => {
   // Find the cover photo or default to first photo
   const coverPhotoIndex = memory.coverPhotoId 
     ? memory.media.findIndex(m => m.id === memory.coverPhotoId)
@@ -304,7 +306,7 @@ const GridMemoryCard: React.FC<GridMemoryCardProps> = ({ memory, onContribute, o
                 <div>
                   <CardTitle className="text-lg text-gray-800">{displayTitle}</CardTitle>
                   <CardDescription className="text-sm text-gray-600">
-                    {format(new Date(memory.date), 'MMM d, yyyy')}
+                    {format(parse(memory.date, 'yyyy-MM-dd', new Date()), 'MMM d, yyyy')}
                   </CardDescription>
                 </div>
               </div>
@@ -360,7 +362,6 @@ const GridMemoryCard: React.FC<GridMemoryCardProps> = ({ memory, onContribute, o
                   {memory.otherAttendees && `, ${memory.otherAttendees}`}
                 </span>
               </div>
-              <div className="text-xs text-gray-500">Event code: {memory.eventCode}</div>
               <div className="text-gray-700">
                 <span className="font-medium">What we ate:</span>
                 <div className="pl-2">
