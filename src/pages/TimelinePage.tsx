@@ -118,7 +118,7 @@ export const TimelinePage: React.FC = () => {
                 key={memory.id} 
                 memory={memory} 
                 onContribute={handleContribute}
-                onViewDetails={() => navigate(`/memory/${memory.id}`)}
+                onViewDetails={() => navigate(`/memory/${memory.eventCode}`)}
                 onDelete={isAdmin ? () => handleDeleteMemory(memory) : undefined}
               />
             ))}
@@ -160,7 +160,12 @@ interface GridMemoryCardProps {
 }
 
 const GridMemoryCard: React.FC<GridMemoryCardProps> = ({ memory, onContribute, onViewDetails, onDelete }) => {
-  const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
+  // Find the cover photo or default to first photo
+  const coverPhotoIndex = memory.coverPhotoId 
+    ? memory.media.findIndex(m => m.id === memory.coverPhotoId)
+    : 0;
+  
+  const [currentPhotoIndex, setCurrentPhotoIndex] = useState(coverPhotoIndex >= 0 ? coverPhotoIndex : 0);
   const [isHovered, setIsHovered] = useState(false);
   const [showActionsMenu, setShowActionsMenu] = useState(false);
   const touchStartX = useRef<number | null>(null);
@@ -184,6 +189,7 @@ const GridMemoryCard: React.FC<GridMemoryCardProps> = ({ memory, onContribute, o
   // Touch handlers for swipe gestures
   const handleTouchStart = (e: React.TouchEvent) => {
     touchStartX.current = e.targetTouches[0].clientX;
+    console.log('Touch start:', touchStartX.current);
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
@@ -194,13 +200,17 @@ const GridMemoryCard: React.FC<GridMemoryCardProps> = ({ memory, onContribute, o
     if (!touchStartX.current || !touchEndX.current) return;
 
     const distance = touchStartX.current - touchEndX.current;
-    const isLeftSwipe = distance > 50;
-    const isRightSwipe = distance < -50;
+    const isLeftSwipe = distance > 30; // Lowered from 50px to 30px
+    const isRightSwipe = distance < -30; // Lowered from -50px to -30px
+
+    console.log('Touch end - distance:', distance, 'leftSwipe:', isLeftSwipe, 'rightSwipe:', isRightSwipe);
 
     if (isLeftSwipe && memory.media.length > 1) {
+      console.log('Swiping left - going to next photo');
       nextPhoto();
     }
     if (isRightSwipe && memory.media.length > 1) {
+      console.log('Swiping right - going to previous photo');
       prevPhoto();
     }
 
@@ -350,8 +360,13 @@ const GridMemoryCard: React.FC<GridMemoryCardProps> = ({ memory, onContribute, o
                   {memory.otherAttendees && `, ${memory.otherAttendees}`}
                 </span>
               </div>
+              <div className="text-xs text-gray-500">Event code: {memory.eventCode}</div>
               <div className="text-gray-700">
-                <span className="font-medium">What we ate:</span> {memory.food}
+                <span className="font-medium">What we ate:</span>
+                <div className="pl-2">
+                  <div><span className="font-semibold">Meal:</span> {memory.meal || (memory as any).food || 'Not specified'}</div>
+                  <div><span className="font-semibold">Dessert:</span> {memory.dessert || 'Not specified'}</div>
+                </div>
               </div>
               {memory.celebration && (
                 <div className="text-gray-700">

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { X, Camera, MessageSquare } from 'lucide-react';
 import { Memory } from '../types';
 import { Toast } from './Toast';
-import { addContribution } from '../services/firebaseService';
+import { addContribution, uploadMultipleMedia } from '../services/firebaseService';
 import { useAuth } from '../contexts/AuthContext';
 
 interface ContributionModalProps {
@@ -16,6 +16,7 @@ export const ContributionModal: React.FC<ContributionModalProps> = ({ memory, on
   const [note, setNote] = useState('');
   const [media, setMedia] = useState<File[]>([]);
   const [mediaCaptions, setMediaCaptions] = useState<string[]>([]);
+  const [mediaProgress, setMediaProgress] = useState<number[]>([]);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -23,6 +24,7 @@ export const ContributionModal: React.FC<ContributionModalProps> = ({ memory, on
     const files = Array.from(e.target.files || []);
     setMedia(prev => [...prev, ...files]);
     setMediaCaptions(prev => [...prev, ...files.map(() => '')]);
+    setMediaProgress(prev => [...prev, ...files.map(() => 0)]);
   };
 
   const handleMediaCaptionChange = (index: number, caption: string) => {
@@ -32,6 +34,7 @@ export const ContributionModal: React.FC<ContributionModalProps> = ({ memory, on
   const removeMedia = (index: number) => {
     setMedia(prev => prev.filter((_, i) => i !== index));
     setMediaCaptions(prev => prev.filter((_, i) => i !== index));
+    setMediaProgress(prev => prev.filter((_, i) => i !== index));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -50,13 +53,32 @@ export const ContributionModal: React.FC<ContributionModalProps> = ({ memory, on
     setIsSubmitting(true);
 
     try {
+      // Upload media in parallel with progress
+      let uploadedMediaIds: string[] = [];
+      if (media.length > 0) {
+        uploadedMediaIds = await uploadMultipleMedia(
+          media,
+          memory.id,
+          mediaCaptions,
+          user.id,
+          user.displayName,
+          (idx, progress) => {
+            setMediaProgress(prev => {
+              const updated = [...prev];
+              updated[idx] = progress;
+              return updated;
+            });
+          }
+        );
+      }
+      // Add note (if any) and trigger onSubmit
       await addContribution(
         memory.id,
         user.id,
         user.displayName,
         note,
-        media,
-        mediaCaptions
+        [], // media already uploaded
+        []
       );
       
       setToast({ message: 'Your contribution has been added!', type: 'success' });
@@ -141,11 +163,21 @@ export const ContributionModal: React.FC<ContributionModalProps> = ({ memory, on
                           onChange={(e) => handleMediaCaptionChange(index, e.target.value)}
                           className="mt-1 w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-rose-500 focus:border-rose-500"
                         />
+                        {/* Progress bar */}
+                        {isSubmitting && (
+                          <div className="mt-2 h-2 w-full bg-gray-200 rounded">
+                            <div
+                              className="h-2 rounded bg-rose-500 transition-all"
+                              style={{ width: `${mediaProgress[index] || 0}%` }}
+                            />
+                          </div>
+                        )}
                       </div>
                       <button
                         type="button"
                         onClick={() => removeMedia(index)}
                         className="text-red-500 hover:text-red-700"
+                        disabled={isSubmitting}
                       >
                         <X className="h-4 w-4" />
                       </button>
@@ -159,7 +191,7 @@ export const ContributionModal: React.FC<ContributionModalProps> = ({ memory, on
             <div className="flex items-center gap-3 pt-4">
               <button
                 type="submit"
-                disabled={isSubmitting}
+                disabled={isSubmitting || (media.length > 0 && mediaProgress.some(p => p < 100))}
                 className="flex-1 bg-rose-500 text-white py-3 px-4 rounded-lg font-medium hover:bg-rose-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 {isSubmitting ? (

@@ -28,7 +28,8 @@ export const EditMemoryPage: React.FC = () => {
     occasion: '' as 'Shabbat Dinner' | 'Holiday Meal' | '',
     holiday: '',
     holidayDescription: '',
-    food: '',
+    meal: '',
+    dessert: '',
     celebration: '',
     notes: ''
   });
@@ -73,7 +74,8 @@ export const EditMemoryPage: React.FC = () => {
         occasion: memoryData.occasion,
         holiday: memoryData.holiday || '',
         holidayDescription: memoryData.holidayDescription || '',
-        food: memoryData.food,
+        meal: memoryData.meal || memoryData.food || '',
+        dessert: memoryData.dessert || '',
         celebration: memoryData.celebration || '',
         notes: memoryData.notes.map(note => note.text).join('\n\n') || ''
       });
@@ -133,7 +135,7 @@ export const EditMemoryPage: React.FC = () => {
 
     // Validation
     const selectedAttendees = getSelectedAttendees();
-    if (!formData.date || !formData.occasion || !selectedAttendees.length || !formData.food) {
+    if (!formData.date || !formData.occasion || !selectedAttendees.length || !formData.meal || !formData.dessert) {
       setToast({ message: 'Please fill in all required fields', type: 'error' });
       return;
     }
@@ -367,17 +369,31 @@ export const EditMemoryPage: React.FC = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="food" className="text-gray-700">
-                    What we ate <span className="text-red-500">*</span>
-                  </Label>
-                  <Textarea
-                    id="food"
-                    placeholder="e.g., Challah, roasted chicken, roasted vegetables, kugel"
-                    value={formData.food}
-                    onChange={(e) => handleInputChange('food', e.target.value)}
-                    className="border-gray-200 focus:border-orange-300 focus:ring-orange-200 min-h-[80px]"
-                    required
-                  />
+                  <Label className="text-gray-700 text-lg font-semibold">What we ate</Label>
+                  <div className="space-y-2 pl-2">
+                    <Label htmlFor="meal" className="text-gray-700">
+                      Meal <span className="text-red-500">*</span>
+                    </Label>
+                    <Textarea
+                      id="meal"
+                      placeholder="e.g., Challah, roasted chicken, roasted vegetables, kugel"
+                      value={formData.meal}
+                      onChange={(e) => handleInputChange('meal', e.target.value)}
+                      className="border-gray-200 focus:border-orange-300 focus:ring-orange-200 min-h-[60px]"
+                      required
+                    />
+                    <Label htmlFor="dessert" className="text-gray-700">
+                      Dessert <span className="text-red-500">*</span>
+                    </Label>
+                    <Textarea
+                      id="dessert"
+                      placeholder="e.g., Chocolate cake, fruit salad, cookies"
+                      value={formData.dessert}
+                      onChange={(e) => handleInputChange('dessert', e.target.value)}
+                      className="border-gray-200 focus:border-orange-300 focus:ring-orange-200 min-h-[40px]"
+                      required
+                    />
+                  </div>
                 </div>
               </div>
 

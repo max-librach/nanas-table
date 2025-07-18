@@ -1,19 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
-import { ArrowLeft, Calendar, Camera, Cake, Heart, Users, Video, Utensils, MessageCircle, Edit, Plus, Trash2, MoreVertical } from 'lucide-react';
+import { ArrowLeft, Calendar, Camera, Cake, Heart, Users, Video, Utensils, MessageCircle, Edit, Plus, Trash2, MoreVertical, Star } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { VideoPlayer } from '../components/VideoPlayer';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
-import { Memory } from '../types';
+import { Memory, Media } from '../types';
 import { ContributionModal } from '../components/ContributionModal';
 import { DeleteMemoryModal } from '../components/DeleteMemoryModal';
-import { getMemory, deleteMemory as deleteMemoryFromDB } from '../services/firebaseService';
+import { getMemory, deleteMemory as deleteMemoryFromDB, updateMemory, getMemoryByEventCode } from '../services/firebaseService';
 import { useAuth } from '../contexts/AuthContext';
+import { PhotoViewerModal } from '../components/PhotoViewerModal';
 
 export const MemoryDetailsPage: React.FC = () => {
-  const { id } = useParams<{ id: string }>();
+  const { eventCode } = useParams<{ eventCode: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
   const [memory, setMemory] = useState<Memory | null>(null);
@@ -21,23 +22,23 @@ export const MemoryDetailsPage: React.FC = () => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showActionsMenu, setShowActionsMenu] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [showPhotoViewer, setShowPhotoViewer] = useState(false);
+  const [selectedPhoto, setSelectedPhoto] = useState<Media | null>(null);
 
   // Check if current user is Max (admin)
   const isAdmin = user?.email === 'maxlibrach@gmail.com';
 
   useEffect(() => {
-
-    if (id) {
+    if (eventCode) {
       loadMemory();
     }
-  }, [id]);
+  }, [eventCode]);
 
   const loadMemory = async () => {
-    if (!id) return;
-    
+    if (!eventCode) return;
     try {
       setLoading(true);
-      const memoryData = await getMemory(id);
+      const memoryData = await getMemoryByEventCode(eventCode);
       setMemory(memoryData);
     } catch (error) {
       console.error('Error loading memory:', error);
@@ -117,7 +118,7 @@ export const MemoryDetailsPage: React.FC = () => {
               variant="outline"
               size="sm"
               className="text-orange-600 border-orange-200 hover:bg-orange-50 bg-transparent"
-              onClick={() => navigate(`/memory/${id}/edit`)}
+              onClick={() => navigate(`/memory/${eventCode}/edit`)}
             >
               <Edit className="w-4 h-4 mr-2" />
               Edit
@@ -174,6 +175,7 @@ export const MemoryDetailsPage: React.FC = () => {
                   >
                     {format(new Date(memory.date), 'EEEE, MMM d, yyyy')}
                   </CardDescription>
+                  <div className="text-xs text-gray-500 mt-1">Event code: {memory.eventCode}</div>
                 </div>
               </div>
 
@@ -203,7 +205,10 @@ export const MemoryDetailsPage: React.FC = () => {
 
             {/* Food */}
             <Section icon={<Utensils className="w-5 h-5 text-gray-600" />} title="What we ate">
-              {memory.food}
+              <div className="pl-2">
+                <div><span className="font-semibold">Meal:</span> {memory.meal || (memory as any).food || 'Not specified'}</div>
+                <div><span className="font-semibold">Dessert:</span> {memory.dessert || 'Not specified'}</div>
+              </div>
             </Section>
 
             {/* Celebration */}
@@ -258,7 +263,11 @@ export const MemoryDetailsPage: React.FC = () => {
                         <img
                           src={media.fileUrl}
                           alt={media.caption || ''}
-                          className="w-full aspect-square object-cover rounded-lg"
+                          className="w-full aspect-square object-cover rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
+                          onClick={() => {
+                            setSelectedPhoto(media);
+                            setShowPhotoViewer(true);
+                          }}
                         />
                       )}
                       
@@ -320,6 +329,19 @@ export const MemoryDetailsPage: React.FC = () => {
           onConfirm={handleDeleteMemory}
         />
       )}
+
+      {showPhotoViewer && selectedPhoto && memory && (
+        <PhotoViewerModal
+          isOpen={showPhotoViewer}
+          onClose={() => {
+            setShowPhotoViewer(false);
+            setSelectedPhoto(null);
+          }}
+          memory={memory}
+          selectedPhoto={selectedPhoto}
+          onPhotoUpdate={(updatedMemory) => setMemory(updatedMemory)}
+        />
+      )}
     </div>
   );
 };
@@ -343,7 +365,7 @@ function Section({
         {icon}
         <h3 className="font-semibold text-gray-800">{title}</h3>
       </div>
-      <p className="text-gray-700 bg-gray-50 rounded-lg p-3">{children}</p>
+      <div className="text-gray-700 bg-gray-50 rounded-lg p-3">{children}</div>
     </div>
   );
 }

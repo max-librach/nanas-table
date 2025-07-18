@@ -23,12 +23,12 @@ function App() {
               <CreateMemoryPage />
             </PrivateRoute>
           } />
-          <Route path="/memory/:id/edit" element={
+          <Route path="/memory/:eventCode/edit" element={
             <PrivateRoute>
               <EditMemoryPage />
             </PrivateRoute>
           } />
-          <Route path="/memory/:id" element={
+          <Route path="/memory/:eventCode" element={
             <PrivateRoute>
               <MemoryDetailsPage />
             </PrivateRoute>

@@ -11,7 +11,7 @@ import { Checkbox } from '../components/ui/checkbox';
 import { Toast } from '../components/Toast';
 import { FAMILY_MEMBERS_LIST, HOLIDAYS } from '../constants';
 import { createMemory } from '../services/firebaseService';
-import { uploadMedia } from '../services/firebaseService';
+import { uploadMediaWithProgress } from '../services/firebaseService';
 import { useAuth } from '../contexts/AuthContext';
 
 export const CreateMemoryPage: React.FC = () => {
@@ -25,7 +25,8 @@ export const CreateMemoryPage: React.FC = () => {
     occasion: '' as 'Shabbat Dinner' | 'Holiday Meal' | '',
     holiday: '',
     holidayDescription: '',
-    food: '',
+    meal: '',
+    dessert: '',
     celebration: '',
     notes: '',
     media: [] as File[],
@@ -119,7 +120,7 @@ export const CreateMemoryPage: React.FC = () => {
 
     // Validation
     const selectedAttendees = getSelectedAttendees();
-    if (!formData.date || !formData.occasion || !selectedAttendees.length || !formData.food) {
+    if (!formData.date || !formData.occasion || !selectedAttendees.length || !formData.meal || !formData.dessert) {
       setToast({ message: 'Please fill in all required fields', type: 'error' });
       return;
     }
@@ -192,7 +193,7 @@ export const CreateMemoryPage: React.FC = () => {
             }
             
             updateProgress(i, 50); // Mid progress
-            await uploadMedia(file, memoryId, caption, user.id, user.displayName);
+            await uploadMediaWithProgress(file, memoryId, caption, user.id, user.displayName, () => {});
             updateProgress(i, 100); // Complete
           }
           
@@ -395,17 +396,31 @@ export const CreateMemoryPage: React.FC = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="food" className="text-gray-700">
-                    What we ate <span className="text-red-500">*</span>
-                  </Label>
-                  <Textarea
-                    id="food"
-                    placeholder="e.g., Challah, roasted chicken, roasted vegetables, kugel"
-                    value={formData.food}
-                    onChange={(e) => handleInputChange('food', e.target.value)}
-                    className="border-gray-200 focus:border-orange-300 focus:ring-orange-200 min-h-[80px]"
-                    required
-                  />
+                  <Label className="text-gray-700 text-lg font-semibold">What we ate</Label>
+                  <div className="space-y-2 pl-2">
+                    <Label htmlFor="meal" className="text-gray-700">
+                      Meal <span className="text-red-500">*</span>
+                    </Label>
+                    <Textarea
+                      id="meal"
+                      placeholder="e.g., Challah, roasted chicken, roasted vegetables, kugel"
+                      value={formData.meal}
+                      onChange={(e) => handleInputChange('meal', e.target.value)}
+                      className="border-gray-200 focus:border-orange-300 focus:ring-orange-200 min-h-[60px]"
+                      required
+                    />
+                    <Label htmlFor="dessert" className="text-gray-700">
+                      Dessert <span className="text-red-500">*</span>
+                    </Label>
+                    <Textarea
+                      id="dessert"
+                      placeholder="e.g., Chocolate cake, fruit salad, cookies"
+                      value={formData.dessert}
+                      onChange={(e) => handleInputChange('dessert', e.target.value)}
+                      className="border-gray-200 focus:border-orange-300 focus:ring-orange-200 min-h-[40px]"
+                      required
+                    />
+                  </div>
                 </div>
               </div>
 

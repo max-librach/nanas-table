@@ -12,12 +12,15 @@ export interface Memory {
   holiday?: string;
   attendees: string[];
   otherAttendees?: string;
-  food: string;
+  meal: string;
+  dessert: string;
   celebration?: string;
   createdBy: string;
   createdAt: string;
   notes: Note[];
   media: Media[];
+  coverPhotoId?: string;
+  eventCode?: string;
 }
 
 export interface Note {
