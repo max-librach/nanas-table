@@ -50,13 +50,8 @@ export const createMemory = async (memoryData: Omit<Memory, 'id' | 'createdAt' |
       })
     );
     
-    // Generate eventCode: YYYY-MM-DD or YYYY-MM-DD-N
-    // Use the local date as entered by the user, do not convert to UTC
-    const localDate = new Date(memoryData.date);
-    const year = localDate.getFullYear();
-    const month = String(localDate.getMonth() + 1).padStart(2, '0');
-    const day = String(localDate.getDate()).padStart(2, '0');
-    const dateStr = `${year}-${month}-${day}`;
+    // Use the date string from the form directly (no Date conversion)
+    const dateStr = memoryData.date;
     const memoriesQuery = query(collection(db, 'memories'), where('date', '>=', dateStr), where('date', '<=', dateStr));
     let eventCode = dateStr;
     const querySnapshot = await getDocs(memoriesQuery);
@@ -74,9 +69,9 @@ export const createMemory = async (memoryData: Omit<Memory, 'id' | 'createdAt' |
     
     const finalData = {
       ...cleanedData,
-      date: dateStr, // Store as YYYY-MM-DD
+      date: dateStr, // Store as YYYY-MM-DD from the form
       eventCode,
-      createdAt: Timestamp.now().toDate().toISOString(),
+      createdAt: Timestamp.now().toISOString(),
       notes: [],
       media: []
     };
