@@ -71,7 +71,7 @@ export const createMemory = async (memoryData: Omit<Memory, 'id' | 'createdAt' |
       ...cleanedData,
       date: dateStr, // Store as YYYY-MM-DD from the form
       eventCode,
-      createdAt: Timestamp.now().toISOString(),
+      createdAt: Timestamp.now().toDate().toISOString(),
       notes: [],
       media: []
     };
