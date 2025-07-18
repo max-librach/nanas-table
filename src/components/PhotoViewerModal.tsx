@@ -4,6 +4,7 @@ import { Button } from './ui/button';
 import { Memory, Media } from '../types';
 import { updateMemory } from '../services/firebaseService';
 import { useAuth } from '../contexts/AuthContext';
+import { useSwipeable } from 'react-swipeable';
 
 interface PhotoViewerModalProps {
   isOpen: boolean;
@@ -35,6 +36,18 @@ export const PhotoViewerModal: React.FC<PhotoViewerModalProps> = ({
   // Check if current user is admin or photo owner
   const isAdmin = user?.email === 'maxlibrach@gmail.com';
   const isPhotoOwner = currentPhoto.uploadedBy === user?.email;
+
+  // Detect mobile
+  const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+
+  // react-swipeable handlers for mobile
+  const handlers = useSwipeable({
+    onSwipedLeft: () => nextPhoto(),
+    onSwipedRight: () => prevPhoto(),
+    preventScrollOnSwipe: true,
+    trackMouse: false,
+    delta: 20,
+  });
 
   const nextPhoto = () => {
     if (hasNext) {
@@ -207,15 +220,14 @@ export const PhotoViewerModal: React.FC<PhotoViewerModalProps> = ({
           </div>
 
           {/* Photo */}
-          <div className="relative w-full h-full">
+          <div className="relative w-full h-full" {...(isMobile ? handlers : {})}>
             <img
               src={currentPhoto.fileUrl}
               alt={currentPhoto.caption || 'Photo'}
               className="w-full h-full object-contain"
             />
-            
-            {/* Navigation Arrows */}
-            {hasPrev && (
+            {/* Navigation Arrows (desktop only) */}
+            {hasPrev && !isMobile && (
               <Button
                 variant="ghost"
                 size="sm"
@@ -226,8 +238,7 @@ export const PhotoViewerModal: React.FC<PhotoViewerModalProps> = ({
                 <ChevronLeft className="w-6 h-6" />
               </Button>
             )}
-            
-            {hasNext && (
+            {hasNext && !isMobile && (
               <Button
                 variant="ghost"
                 size="sm"

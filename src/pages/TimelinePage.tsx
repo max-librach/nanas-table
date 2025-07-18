@@ -13,6 +13,7 @@ import { Button } from '../components/ui/button';
 import { Card, CardContent, CardDescription, CardTitle } from '../components/ui/card';
 import { useAuth } from '../contexts/AuthContext';
 import { useSwipeable } from 'react-swipeable';
+import { PhotoViewerModal } from '../components/PhotoViewerModal';
 
 export const TimelinePage: React.FC = () => {
   const navigate = useNavigate();
@@ -23,6 +24,9 @@ export const TimelinePage: React.FC = () => {
   const [showContribution, setShowContribution] = useState(false);
   const [memoryToDelete, setMemoryToDelete] = useState<Memory | null>(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [photoViewerOpen, setPhotoViewerOpen] = useState(false);
+  const [photoViewerMemory, setPhotoViewerMemory] = useState<Memory | null>(null);
+  const [photoViewerPhoto, setPhotoViewerPhoto] = useState<Media | null>(null);
 
   // Check if current user is Max (admin)
   const isAdmin = user?.email === 'maxlibrach@gmail.com';
@@ -149,6 +153,18 @@ export const TimelinePage: React.FC = () => {
           onConfirm={confirmDeleteMemory}
         />
       )}
+
+      {photoViewerOpen && photoViewerMemory && photoViewerPhoto && (
+        <PhotoViewerModal
+          isOpen={photoViewerOpen}
+          onClose={() => setPhotoViewerOpen(false)}
+          memory={photoViewerMemory}
+          selectedPhoto={photoViewerPhoto}
+          onPhotoUpdate={updatedMemory => {
+            setPhotoViewerMemory(updatedMemory);
+          }}
+        />
+      )}
     </div>
   );
 };
@@ -259,6 +275,12 @@ const GridMemoryCard: React.FC<GridMemoryCardProps> = ({ memory, onContribute, o
                       src={memory.media[currentPhotoIndex]?.fileUrl}
                       alt={memory.media[currentPhotoIndex]?.caption || `${displayTitle} media ${currentPhotoIndex + 1}`}
                       className="w-full h-full object-cover"
+                      onClick={() => {
+                        setPhotoViewerMemory(memory);
+                        setPhotoViewerPhoto(memory.media[currentPhotoIndex]);
+                        setPhotoViewerOpen(true);
+                      }}
+                      style={{ cursor: 'pointer' }}
                     />
                   )}
                   {/* Navigation arrows (desktop only) */}
