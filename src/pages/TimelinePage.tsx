@@ -4,7 +4,7 @@ import { format, parse } from 'date-fns';
 import { Calendar, Users, ChefHat, Star, Camera, Eye, Plus, Heart, Video, ChevronLeft, ChevronRight, Trash2, MoreVertical } from 'lucide-react';
 import { Header } from '../components/Header';
 import { VideoPlayer } from '../components/VideoPlayer';
-import { Memory } from '../types';
+import { Memory, Media } from '../types';
 import { ContributionModal } from '../components/ContributionModal';
 import { DeleteMemoryModal } from '../components/DeleteMemoryModal';
 import { getMemories, deleteMemory as deleteMemoryFromDB } from '../services/firebaseService';
@@ -126,6 +126,11 @@ export const TimelinePage: React.FC = () => {
                 onViewDetails={() => navigate(`/memory/${memory.eventCode}`)}
                 onDelete={isAdmin ? () => handleDeleteMemory(memory) : undefined}
                 isAdmin={isAdmin}
+                onPhotoClick={(photo, mem) => {
+                  setPhotoViewerMemory(mem);
+                  setPhotoViewerPhoto(photo);
+                  setPhotoViewerOpen(true);
+                }}
               />
             ))}
           </div>
@@ -176,9 +181,10 @@ interface GridMemoryCardProps {
   onViewDetails: () => void;
   onDelete?: () => void;
   isAdmin?: boolean;
+  onPhotoClick?: (photo: Media, memory: Memory) => void;
 }
 
-const GridMemoryCard: React.FC<GridMemoryCardProps> = ({ memory, onContribute, onViewDetails, onDelete, isAdmin }) => {
+const GridMemoryCard: React.FC<GridMemoryCardProps> = ({ memory, onContribute, onViewDetails, onDelete, isAdmin, onPhotoClick }) => {
   // Find the cover photo or default to first photo
   const coverPhotoIndex = memory.coverPhotoId 
     ? memory.media.findIndex(m => m.id === memory.coverPhotoId)
@@ -276,9 +282,7 @@ const GridMemoryCard: React.FC<GridMemoryCardProps> = ({ memory, onContribute, o
                       alt={memory.media[currentPhotoIndex]?.caption || `${displayTitle} media ${currentPhotoIndex + 1}`}
                       className="w-full h-full object-cover"
                       onClick={() => {
-                        setPhotoViewerMemory(memory);
-                        setPhotoViewerPhoto(memory.media[currentPhotoIndex]);
-                        setPhotoViewerOpen(true);
+                        if (onPhotoClick) onPhotoClick(memory.media[currentPhotoIndex], memory);
                       }}
                       style={{ cursor: 'pointer' }}
                     />
