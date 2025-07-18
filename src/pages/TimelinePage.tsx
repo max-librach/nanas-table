@@ -176,6 +176,18 @@ const GridMemoryCard: React.FC<GridMemoryCardProps> = ({ memory, onContribute, o
   const photos = memory.media.filter(m => m.fileType === 'image');
   const videos = memory.media.filter(m => m.fileType === 'video');
 
+  // Detect mobile
+  const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+
+  // Auto-scroll (desktop only)
+  useEffect(() => {
+    if (isMobile) return;
+    const interval = setInterval(() => {
+      setCurrentPhotoIndex((prev) => (prev + 1) % memory.media.length);
+    }, 4000);
+    return () => clearInterval(interval);
+  }, [isMobile, memory.media.length]);
+
   const nextPhoto = () => {
     if (memory.media.length > 1) {
       setCurrentPhotoIndex((prev) => (prev + 1) % memory.media.length);
@@ -188,34 +200,24 @@ const GridMemoryCard: React.FC<GridMemoryCardProps> = ({ memory, onContribute, o
     }
   };
 
-  // Touch handlers for swipe gestures
+  // Touch handlers for swipe gestures (mobile only)
   const handleTouchStart = (e: React.TouchEvent) => {
+    if (!isMobile) return;
     touchStartX.current = e.targetTouches[0].clientX;
-    console.log('Touch start:', touchStartX.current);
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
+    if (!isMobile) return;
     touchEndX.current = e.targetTouches[0].clientX;
   };
 
   const handleTouchEnd = () => {
-    if (!touchStartX.current || !touchEndX.current) return;
-
+    if (!isMobile || !touchStartX.current || !touchEndX.current) return;
     const distance = touchStartX.current - touchEndX.current;
-    const isLeftSwipe = distance > 30; // Lowered from 50px to 30px
-    const isRightSwipe = distance < -30; // Lowered from -50px to -30px
-
-    console.log('Touch end - distance:', distance, 'leftSwipe:', isLeftSwipe, 'rightSwipe:', isRightSwipe);
-
-    if (isLeftSwipe && memory.media.length > 1) {
-      console.log('Swiping left - going to next photo');
-      nextPhoto();
-    }
-    if (isRightSwipe && memory.media.length > 1) {
-      console.log('Swiping right - going to previous photo');
-      prevPhoto();
-    }
-
+    const isLeftSwipe = distance > 30;
+    const isRightSwipe = distance < -30;
+    if (isLeftSwipe && memory.media.length > 1) nextPhoto();
+    if (isRightSwipe && memory.media.length > 1) prevPhoto();
     touchStartX.current = null;
     touchEndX.current = null;
   };
@@ -251,10 +253,10 @@ const GridMemoryCard: React.FC<GridMemoryCardProps> = ({ memory, onContribute, o
                       className="w-full h-full object-cover"
                     />
                   )}
-                  
-                  {memory.media.length > 1 && (
+                  {/* Navigation arrows (desktop only) */}
+                  {memory.media.length > 1 && !isMobile && (
                     <>
-                      {/* Enhanced navigation buttons */}
+                      {/* Enhanced navigation buttons (desktop only) */}
                       <button
                         onClick={prevPhoto}
                         className={`absolute left-3 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white text-gray-800 rounded-full p-2 shadow-lg transition-all duration-200 ${
@@ -273,7 +275,6 @@ const GridMemoryCard: React.FC<GridMemoryCardProps> = ({ memory, onContribute, o
                       >
                         <ChevronRight className="w-5 h-5" />
                       </button>
-
                       {/* Enhanced photo indicators */}
                       <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex space-x-2">
                         {memory.media.map((_, index) => (

@@ -120,7 +120,7 @@ export const CreateMemoryPage: React.FC = () => {
 
     // Validation
     const selectedAttendees = getSelectedAttendees();
-    if (!formData.date || !formData.occasion || !selectedAttendees.length || !formData.meal || !formData.dessert) {
+    if (!formData.date || !formData.occasion || !selectedAttendees.length || !formData.meal) {
       setToast({ message: 'Please fill in all required fields', type: 'error' });
       return;
     }
@@ -412,16 +412,12 @@ export const CreateMemoryPage: React.FC = () => {
                       className="border-gray-200 focus:border-orange-300 focus:ring-orange-200 min-h-[60px]"
                       required
                     />
-                    <Label htmlFor="dessert" className="text-gray-700">
-                      Dessert <span className="text-red-500">*</span>
-                    </Label>
+                    <Label htmlFor="dessert" className="font-semibold">Dessert</Label>
                     <Textarea
                       id="dessert"
-                      placeholder="e.g., Chocolate cake, fruit salad, cookies"
                       value={formData.dessert}
-                      onChange={(e) => handleInputChange('dessert', e.target.value)}
-                      className="border-gray-200 focus:border-orange-300 focus:ring-orange-200 min-h-[40px]"
-                      required
+                      onChange={e => handleInputChange('dessert', e.target.value)}
+                      placeholder="e.g. brownies, ice cream, fruit salad"
                     />
                   </div>
                 </div>
