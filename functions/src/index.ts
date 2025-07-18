@@ -76,13 +76,12 @@ Now's a great time to add your own photos, stories, or anything you want to reme
 You can add your part here:
 👉 Add your memory: ${url}
 `;
-  if (!memory.createdByName) {
-    body += `\n(Note: The creator's name was not set. If this is you, please check your profile settings.)\n`;
-  }
-  if (url) {
-    body += `\nIf you get a 404, try refreshing the page or double-checking the event code.\n`;
-  }
-  body += `\nIt only takes a minute, and I promise it'll be worth it when we (or the kids) look back on all of this later.\n\nLove,\nMax\n`;
+  body += `
+It only takes a minute, and I promise it'll be worth it when we (or the kids) look back on all of this later.
+
+Love,
+Max
+`;
 
   await resend.emails.send({
     from: "Nana's Table <hello@nanastable.me>", // Use a verified sender with display name
