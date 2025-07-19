@@ -191,7 +191,7 @@ export const ContributionModal: React.FC<ContributionModalProps> = ({ memory, on
             <div className="flex items-center gap-3 pt-4">
               <button
                 type="submit"
-                disabled={isSubmitting || (media.length > 0 && mediaProgress.some(p => p < 100))}
+                disabled={isSubmitting}
                 className="flex-1 bg-rose-500 text-white py-3 px-4 rounded-lg font-medium hover:bg-rose-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 {isSubmitting ? (
