@@ -459,7 +459,7 @@ export const addContribution = async (
     if (mediaFiles && mediaFiles.length > 0) {
       mediaFiles.forEach((file, index) => {
         const caption = mediaCaptions?.[index] || '';
-        promises.push(uploadMedia(file, memoryId, caption, authorId, authorName));
+        promises.push(uploadMediaWithProgress(file, memoryId, caption, authorId, authorName, () => {}));
       });
     }
     

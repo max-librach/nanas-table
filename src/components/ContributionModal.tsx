@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { X, Camera, MessageSquare } from 'lucide-react';
 import { Memory } from '../types';
 import { Toast } from './Toast';
-import { addContribution, uploadMultipleMedia } from '../services/firebaseService';
+import { addContribution, uploadMultipleMedia, addNote } from '../services/firebaseService';
 import { useAuth } from '../contexts/AuthContext';
 
 interface ContributionModalProps {
@@ -71,15 +71,16 @@ export const ContributionModal: React.FC<ContributionModalProps> = ({ memory, on
           }
         );
       }
-      // Add note (if any) and trigger onSubmit
-      await addContribution(
-        memory.id,
-        user.id,
-        user.displayName,
-        note,
-        [], // media already uploaded
-        []
-      );
+      
+      // Add note (if any) separately since media is already uploaded
+      if (note.trim()) {
+        await addNote({
+          memoryId: memory.id,
+          authorId: user.id,
+          authorName: user.displayName,
+          text: note.trim()
+        });
+      }
       
       setToast({ message: 'Your contribution has been added!', type: 'success' });
       
