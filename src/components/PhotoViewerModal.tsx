@@ -2,9 +2,12 @@ import React, { useState } from 'react';
 import { X, Star, Download, Share, ChevronLeft, ChevronRight, Trash2 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Memory, Media } from '../types';
-import { updateMemory } from '../services/firebaseService';
+import { updateMemory, deleteMedia } from '../services/firebaseService';
 import { useAuth } from '../contexts/AuthContext';
 import { useSwipeable } from 'react-swipeable';
+import { doc, deleteDoc } from 'firebase/firestore';
+import { ref, deleteObject } from 'firebase/storage';
+import { db, storage } from '../firebase/config';
 
 interface PhotoViewerModalProps {
   isOpen: boolean;
@@ -128,8 +131,40 @@ export const PhotoViewerModal: React.FC<PhotoViewerModalProps> = ({
   };
 
   const handleDelete = async () => {
-    // TODO: Implement delete functionality
-    console.log('Delete photo:', currentPhoto.id);
+    if (!confirm('Are you sure you want to delete this photo? This action cannot be undone.')) {
+      return;
+    }
+
+    try {
+      // Delete the media using the service function
+      await deleteMedia(currentPhoto.id, currentPhoto.fileUrl);
+
+      // Update the memory to remove the deleted photo
+      const updatedMedia = memory.media.filter(m => m.id !== currentPhoto.id);
+      const updatedMemory = { ...memory, media: updatedMedia };
+
+      // If this was the cover photo, clear the cover photo
+      if (memory.coverPhotoId === currentPhoto.id) {
+        updatedMemory.coverPhotoId = undefined;
+        // Update the memory's cover photo in Firestore
+        await updateMemory(memory.id, { coverPhotoId: undefined });
+      }
+
+      // Notify parent component
+      onPhotoUpdate?.(updatedMemory);
+
+      setToastMessage('Photo deleted successfully!');
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 3000);
+
+      // Close the modal
+      onClose();
+    } catch (error) {
+      console.error('Error deleting photo:', error);
+      setToastMessage('Failed to delete photo. Please try again.');
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 3000);
+    }
   };
 
   if (!isOpen) return null;

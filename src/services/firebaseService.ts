@@ -456,6 +456,23 @@ export const uploadMultipleMedia = async (
   return results;
 };
 
+export const deleteMedia = async (mediaId: string, fileUrl: string) => {
+  try {
+    // Delete the media record from Firestore
+    const mediaRef = doc(db, 'media', mediaId);
+    await deleteDoc(mediaRef);
+
+    // Delete the file from Firebase Storage
+    const storageRef = ref(storage, fileUrl);
+    await deleteObject(storageRef);
+
+    console.log('Media deleted successfully:', mediaId);
+  } catch (error) {
+    console.error('Error deleting media:', error);
+    throw error;
+  }
+};
+
 // Contribution operations (combines notes and media)
 export const addContribution = async (
   memoryId: string,
