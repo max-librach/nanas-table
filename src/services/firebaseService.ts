@@ -420,17 +420,40 @@ export const uploadMultipleMedia = async (
   uploadedByName: string,
   onProgress: (index: number, progress: number) => void
 ): Promise<string[]> => {
-  const uploadPromises = files.map((file, idx) =>
-    uploadMediaWithProgress(
-      file,
-      memoryId,
-      captions[idx] || '',
-      uploadedBy,
-      uploadedByName,
-      (progress) => onProgress(idx, progress)
-    )
-  );
-  return Promise.all(uploadPromises);
+  const results: string[] = [];
+  const errors: Error[] = [];
+  
+  // Upload files sequentially to avoid rate limiting and better error handling
+  for (let i = 0; i < files.length; i++) {
+    try {
+      const fileId = await uploadMediaWithProgress(
+        files[i],
+        memoryId,
+        captions[i] || '',
+        uploadedBy,
+        uploadedByName,
+        (progress) => onProgress(i, progress)
+      );
+      results.push(fileId);
+      
+      // Add a small delay between uploads to avoid overwhelming Firebase
+      if (i < files.length - 1) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+    } catch (error) {
+      console.error(`Error uploading file ${files[i].name}:`, error);
+      errors.push(error as Error);
+      // Continue with other files instead of failing completely
+    }
+  }
+  
+  // If any files failed to upload, throw an error with details
+  if (errors.length > 0) {
+    const errorMessage = `Failed to upload ${errors.length} out of ${files.length} files: ${errors.map(e => e.message).join(', ')}`;
+    throw new Error(errorMessage);
+  }
+  
+  return results;
 };
 
 // Contribution operations (combines notes and media)

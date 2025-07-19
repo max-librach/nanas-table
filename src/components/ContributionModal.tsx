@@ -89,7 +89,8 @@ export const ContributionModal: React.FC<ContributionModalProps> = ({ memory, on
       }, 1000);
     } catch (error) {
       console.error('Error adding contribution:', error);
-      setToast({ message: 'Failed to add contribution. Please try again.', type: 'error' });
+      const errorMessage = error instanceof Error ? error.message : 'Failed to add contribution. Please try again.';
+      setToast({ message: errorMessage, type: 'error' });
     } finally {
       setIsSubmitting(false);
     }
