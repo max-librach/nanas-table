@@ -38,7 +38,7 @@ export const PhotoViewerModal: React.FC<PhotoViewerModalProps> = ({
 
   // Check if current user is admin or photo owner
   const isAdmin = user?.email === 'maxlibrach@gmail.com';
-  const isPhotoOwner = currentPhoto.uploadedBy === user?.email;
+  const isPhotoOwner = currentPhoto?.uploadedBy === user?.email;
 
   // Detect mobile
   const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
@@ -131,20 +131,31 @@ export const PhotoViewerModal: React.FC<PhotoViewerModalProps> = ({
   };
 
   const handleDelete = async () => {
+    console.log('Delete button clicked for photo:', currentPhoto);
+    console.log('Current user:', user?.email);
+    console.log('Is admin:', isAdmin);
+    console.log('Is photo owner:', isPhotoOwner);
+    
     if (!confirm('Are you sure you want to delete this photo? This action cannot be undone.')) {
       return;
     }
 
     try {
+      console.log('Starting delete process for photo ID:', currentPhoto.id);
+      console.log('File URL:', currentPhoto.fileUrl);
+      
       // Delete the media using the service function
       await deleteMedia(currentPhoto.id, currentPhoto.fileUrl);
+      console.log('Media deleted successfully from Firebase');
 
       // Update the memory to remove the deleted photo
       const updatedMedia = memory.media.filter(m => m.id !== currentPhoto.id);
       const updatedMemory = { ...memory, media: updatedMedia };
+      console.log('Updated memory media count:', updatedMedia.length);
 
       // If this was the cover photo, clear the cover photo
       if (memory.coverPhotoId === currentPhoto.id) {
+        console.log('Clearing cover photo');
         updatedMemory.coverPhotoId = undefined;
         // Update the memory's cover photo in Firestore
         await updateMemory(memory.id, { coverPhotoId: undefined });
@@ -152,6 +163,7 @@ export const PhotoViewerModal: React.FC<PhotoViewerModalProps> = ({
 
       // Notify parent component
       onPhotoUpdate?.(updatedMemory);
+      console.log('Parent component notified');
 
       setToastMessage('Photo deleted successfully!');
       setShowToast(true);
@@ -161,7 +173,7 @@ export const PhotoViewerModal: React.FC<PhotoViewerModalProps> = ({
       onClose();
     } catch (error) {
       console.error('Error deleting photo:', error);
-      setToastMessage('Failed to delete photo. Please try again.');
+      setToastMessage(`Failed to delete photo: ${error instanceof Error ? error.message : 'Unknown error'}`);
       setShowToast(true);
       setTimeout(() => setShowToast(false), 3000);
     }
