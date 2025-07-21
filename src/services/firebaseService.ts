@@ -639,3 +639,42 @@ export const getMediaByRecipeId = async (recipeId: string): Promise<Media[]> => 
     return [];
   }
 };
+
+// Fetch a single recipe by slug
+export const getRecipeBySlug = async (slug: string): Promise<Recipe | null> => {
+  try {
+    const recipesQuery = query(collection(db, 'recipes'), where('slug', '==', slug));
+    const querySnapshot = await getDocs(recipesQuery);
+    if (querySnapshot.empty) return null;
+    const doc = querySnapshot.docs[0];
+    return { id: doc.id, ...doc.data() } as Recipe;
+  } catch (error) {
+    console.error('Error fetching recipe by slug:', error);
+    return null;
+  }
+};
+
+// Fetch all memories where a recipe is used (mealRecipeIds, dessertRecipeIds, or recipeIds)
+export const getMemoriesByRecipeId = async (recipeId: string): Promise<Memory[]> => {
+  try {
+    // Query for memories where recipeId is in mealRecipeIds, dessertRecipeIds, or recipeIds
+    const memoriesQuery1 = query(collection(db, 'memories'), where('mealRecipeIds', 'array-contains', recipeId));
+    const memoriesQuery2 = query(collection(db, 'memories'), where('dessertRecipeIds', 'array-contains', recipeId));
+    const memoriesQuery3 = query(collection(db, 'memories'), where('recipeIds', 'array-contains', recipeId));
+    const [snap1, snap2, snap3] = await Promise.all([
+      getDocs(memoriesQuery1),
+      getDocs(memoriesQuery2),
+      getDocs(memoriesQuery3)
+    ]);
+    const allDocs = [...snap1.docs, ...snap2.docs, ...snap3.docs];
+    // Remove duplicates by memory ID
+    const uniqueMemories: { [id: string]: Memory } = {};
+    for (const doc of allDocs) {
+      uniqueMemories[doc.id] = { id: doc.id, ...doc.data() } as Memory;
+    }
+    return Object.values(uniqueMemories);
+  } catch (error) {
+    console.error('Error fetching memories by recipeId:', error);
+    return [];
+  }
+};

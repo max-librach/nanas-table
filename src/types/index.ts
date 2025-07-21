@@ -61,4 +61,5 @@ export interface Recipe {
   createdByName: string;
   createdAt: string;
   photoUrls: string[];
+  slug: string;
 }

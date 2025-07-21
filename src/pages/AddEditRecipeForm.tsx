@@ -3,7 +3,8 @@ import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Toast } from '../components/Toast';
-import { createRecipe } from '../services/firebaseService';
+import { createRecipe, getRecipeById, updateRecipe, deleteRecipe } from '../services/firebaseService';
+import { useAuth } from '../contexts/AuthContext';
 
 // Custom styles for Quill editor
 const quillStyles = `
@@ -36,6 +37,14 @@ const OrderedListIcon = () => (
   <svg width="20" height="20" fill="none" viewBox="0 0 20 20"><text x="3" y="8" fontSize="7" fill="currentColor">1.</text><rect x="8" y="5" width="8" height="1.5" rx="0.75" fill="currentColor"/><text x="3" y="13" fontSize="7" fill="currentColor">2.</text><rect x="8" y="9" width="8" height="1.5" rx="0.75" fill="currentColor"/><text x="3" y="18" fontSize="7" fill="currentColor">3.</text><rect x="8" y="13" width="8" height="1.5" rx="0.75" fill="currentColor"/></svg>
 );
 
+function slugify(str: string) {
+  return str
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .replace(/--+/g, '-');
+}
+
 export const AddEditRecipeForm: React.FC = () => {
   const { recipeId } = useParams();
   const isEdit = Boolean(recipeId);
@@ -46,6 +55,26 @@ export const AddEditRecipeForm: React.FC = () => {
   const [photoFiles, setPhotoFiles] = useState<File[]>([]);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const [loading, setLoading] = useState(isEdit);
+  const [recipeDocId, setRecipeDocId] = useState<string | null>(null);
+
+  // Pre-fill fields on edit
+  React.useEffect(() => {
+    if (isEdit && recipeId) {
+      setLoading(true);
+      getRecipeById(recipeId).then(recipe => {
+        if (recipe) {
+          setTitle(recipe.title);
+          setInstructions(recipe.instructions);
+          setTags(recipe.tags || []);
+          // TODO: handle photoUrls if needed
+          setRecipeDocId(recipe.id);
+        }
+        setLoading(false);
+      });
+    }
+  }, [isEdit, recipeId]);
 
   const handleAddTag = () => {
     if (newTag && !tags.includes(newTag)) {
@@ -73,21 +102,44 @@ export const AddEditRecipeForm: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setToast(null);
+    if (!user) {
+      setToast({ message: 'You must be signed in to save a recipe.', type: 'error' });
+      return;
+    }
+    const slug = slugify(title);
     try {
       const recipeData = {
         title: title.trim(),
         instructions: instructions.trim(),
         tags,
-        createdBy: '', // Fill with user ID if available
-        createdByName: '', // Fill with user name if available
+        createdBy: user.id,
+        createdByName: user.displayName,
         createdAt: new Date().toISOString(),
-        photoUrls: [] // Add photo upload logic if needed
+        photoUrls: [], // Add photo upload logic if needed
+        slug
       };
-      await createRecipe(recipeData);
-      setToast({ message: 'Recipe saved!', type: 'success' });
-      setTimeout(() => navigate('/recipes'), 1000);
+      if (isEdit && recipeDocId) {
+        await updateRecipe(recipeDocId, recipeData);
+        setToast({ message: 'Recipe updated!', type: 'success' });
+      } else {
+        await createRecipe(recipeData);
+        setToast({ message: 'Recipe saved!', type: 'success' });
+      }
+      setTimeout(() => navigate(`/recipes/${slug}`), 1000);
     } catch (error) {
       setToast({ message: 'Failed to save recipe. Please try again.', type: 'error' });
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!isEdit || !recipeDocId) return;
+    if (!window.confirm('Are you sure you want to delete this recipe? This cannot be undone.')) return;
+    try {
+      await deleteRecipe(recipeDocId);
+      setToast({ message: 'Recipe deleted.', type: 'success' });
+      setTimeout(() => navigate('/recipes'), 1000);
+    } catch (error) {
+      setToast({ message: 'Failed to delete recipe. Please try again.', type: 'error' });
     }
   };
 
@@ -106,12 +158,22 @@ export const AddEditRecipeForm: React.FC = () => {
             Back
           </button>
           <h1 className="text-lg font-bold text-gray-800 ml-2">{isEdit ? 'Edit Recipe' : 'Add a Recipe'}</h1>
+          {isEdit && user && (
+            <button
+              type="button"
+              className="ml-auto bg-red-50 text-red-600 border border-red-200 rounded px-4 py-2 font-medium hover:bg-red-100"
+              onClick={handleDelete}
+            >Delete</button>
+          )}
         </div>
       </div>
       <div className="max-w-xl mx-auto px-4 py-8">
         {toast && (
           <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />
         )}
+        {loading ? (
+          <div className="text-center text-gray-500 py-12">Loading recipe...</div>
+        ) : (
         <form
           className="bg-white rounded-2xl shadow-lg w-full p-8 space-y-6"
           onSubmit={handleSubmit}
@@ -219,6 +281,7 @@ export const AddEditRecipeForm: React.FC = () => {
             </button>
           </div>
         </form>
+        )}
       </div>
     </div>
   );

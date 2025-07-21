@@ -1,28 +1,38 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { getRecipeById, getMediaByRecipeId } from '../services/firebaseService';
+import { getRecipeBySlug, getMediaByRecipeId, getMemoriesByRecipeId } from '../services/firebaseService';
 
 export const RecipeDetailPage: React.FC = () => {
-  const { recipeId } = useParams();
+  const { slug } = useParams();
   const navigate = useNavigate();
   const [recipe, setRecipe] = useState<any>(null);
   const [photos, setPhotos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [comment, setComment] = useState('');
   const [comments, setComments] = useState<any[]>([]);
+  const [memories, setMemories] = useState<any[]>([]);
 
   useEffect(() => {
-    if (!recipeId) return;
+    if (!slug) return;
     setLoading(true);
-    Promise.all([
-      getRecipeById(recipeId),
-      getMediaByRecipeId(recipeId)
-    ]).then(([recipeData, mediaData]) => {
+    getRecipeBySlug(slug).then(recipeData => {
       setRecipe(recipeData);
-      setPhotos(mediaData);
-      setLoading(false);
+      if (recipeData) {
+        Promise.all([
+          getMediaByRecipeId(recipeData.id),
+          getMemoriesByRecipeId(recipeData.id)
+        ]).then(([mediaData, memoriesData]) => {
+          setPhotos(mediaData);
+          setMemories(memoriesData);
+          setLoading(false);
+        });
+      } else {
+        setPhotos([]);
+        setMemories([]);
+        setLoading(false);
+      }
     });
-  }, [recipeId]);
+  }, [slug]);
 
   const handlePostComment = () => {
     if (comment.trim()) {
@@ -72,7 +82,7 @@ export const RecipeDetailPage: React.FC = () => {
           </div>
           <button
             className="ml-auto bg-orange-50 text-orange-600 border border-orange-200 rounded px-4 py-2 font-medium hover:bg-orange-100"
-            onClick={() => navigate(`/recipes/${recipe.id}/edit`)}
+            onClick={() => navigate(`/recipes/${recipe.slug}/edit`)}
           >Edit</button>
         </div>
         <div className="flex flex-wrap gap-2 mb-4">
@@ -128,6 +138,33 @@ export const RecipeDetailPage: React.FC = () => {
               className="bg-orange-500 text-white px-4 py-2 rounded font-semibold hover:bg-orange-600 transition"
             >Post</button>
           </div>
+        </div>
+        {/* Used in Events */}
+        <div className="mb-6">
+          <h2 className="font-semibold text-gray-700 mb-2 flex items-center gap-2"><span role="img" aria-label="calendar">📅</span> Used in Events</h2>
+          {memories.length === 0 ? (
+            <div className="text-gray-400">This recipe hasn't been used in any events yet.</div>
+          ) : (
+            <div className="space-y-6">
+              {memories.map(mem => (
+                <div key={mem.id} className="bg-orange-50 rounded-lg p-4">
+                  <div className="font-semibold text-orange-700 mb-1">
+                    <a href={`/memory/${mem.eventCode || mem.id}`} className="hover:underline">
+                      {mem.occasion}{mem.holiday ? `: ${mem.holiday}` : ''} ({mem.date})
+                    </a>
+                  </div>
+                  <div className="flex flex-wrap gap-3">
+                    {mem.media && mem.media.filter((m: any) => m.recipeIds && m.recipeIds.includes(recipe.id)).map((m: any) => (
+                      <img key={m.id} src={m.fileUrl} alt={m.caption || ''} className="rounded-lg w-32 h-24 object-cover bg-gray-100" />
+                    ))}
+                    {(!mem.media || mem.media.filter((m: any) => m.recipeIds && m.recipeIds.includes(recipe.id)).length === 0) && (
+                      <span className="text-xs text-gray-400">No tagged photos in this event.</span>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>

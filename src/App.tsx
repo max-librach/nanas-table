@@ -57,8 +57,8 @@ function App() {
           <Route path="/privacy" element={<PrivacyPolicyPage />} />
           <Route path="/recipes" element={<Layout><RecipesPage /></Layout>} />
           <Route path="/recipes/new" element={<Layout><AddEditRecipeForm /></Layout>} />
-          <Route path="/recipes/:recipeId" element={<Layout><RecipeDetailPage /></Layout>} />
-          <Route path="/recipes/:recipeId/edit" element={<Layout><AddEditRecipeForm /></Layout>} />
+          <Route path="/recipes/:slug" element={<Layout><RecipeDetailPage /></Layout>} />
+          <Route path="/recipes/:slug/edit" element={<Layout><AddEditRecipeForm /></Layout>} />
         </Routes>
       </Router>
     </AuthProvider>
