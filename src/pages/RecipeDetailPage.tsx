@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { getRecipeBySlug, getMediaByRecipeId, getMemoriesByRecipeId, getMemory } from '../services/firebaseService';
+import { format } from 'date-fns';
 
 export const RecipeDetailPage: React.FC = () => {
   const { slug } = useParams();
@@ -33,11 +34,17 @@ export const RecipeDetailPage: React.FC = () => {
             if (mem && mem.id) allMemoriesMap[mem.id] = mem;
           }
           // For each memory, attach its tagged photos
-          const allMemories = Object.values(allMemoriesMap).map(mem => ({
-            ...mem,
-            taggedPhotos: (mem.media || []).filter((m: any) => m.recipeIds && m.recipeIds.includes(recipeData.id))
-              .concat(mediaData.filter(m => m.memoryId === mem.id && m.recipeIds && m.recipeIds.includes(recipeData.id)))
-          }));
+          const allMemories = Object.values(allMemoriesMap).map(mem => {
+            // Deduplicate tagged photos by id
+            const tagged = (mem.media || []).filter((m: any) => m.recipeIds && m.recipeIds.includes(recipeData.id))
+              .concat(mediaData.filter(m => m.memoryId === mem.id && m.recipeIds && m.recipeIds.includes(recipeData.id)));
+            const uniquePhotos: { [id: string]: any } = {};
+            for (const p of tagged) { if (p && p.id) uniquePhotos[p.id] = p; }
+            return {
+              ...mem,
+              taggedPhotos: Object.values(uniquePhotos)
+            };
+          });
           setMemories(allMemories);
           setLoading(false);
         });
@@ -126,7 +133,12 @@ export const RecipeDetailPage: React.FC = () => {
         {/* Instructions */}
         <div className="mb-6">
           <h2 className="font-semibold text-gray-700 mb-2 flex items-center gap-2"><span role="img" aria-label="instructions">🍴</span> Instructions</h2>
-          <div className="prose max-w-none" dangerouslySetInnerHTML={{ __html: recipe.instructions }} />
+          <div className="prose max-w-none" style={{
+            // Fallback styles for lists if prose is not enough
+            ul: { paddingLeft: '1.5em', listStyle: 'disc inside' },
+            ol: { paddingLeft: '1.5em', listStyle: 'decimal inside' },
+            li: { marginBottom: '0.25em' }
+          }} dangerouslySetInnerHTML={{ __html: recipe.instructions }} />
         </div>
         {/* Used in Events */}
         <div className="mb-6">
@@ -139,7 +151,7 @@ export const RecipeDetailPage: React.FC = () => {
                 <div key={mem.id} className="bg-orange-50 rounded-lg p-4">
                   <div className="font-semibold text-orange-700 mb-1">
                     <a href={`/memory/${mem.eventCode || mem.id}`} className="hover:underline">
-                      {mem.occasion}{mem.holiday ? `: ${mem.holiday}` : ''} ({mem.date})
+                      {mem.occasion}{mem.holiday ? `: ${mem.holiday}` : ''} ({mem.date ? format(new Date(mem.date), 'MMMM d, yyyy') : ''})
                     </a>
                   </div>
                   <div className="flex flex-wrap gap-3">
