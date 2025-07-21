@@ -15,6 +15,7 @@ export const RecipeDetailPage: React.FC = () => {
   const [commentsLoading, setCommentsLoading] = useState(true);
   const [memories, setMemories] = useState<any[]>([]);
   const { user } = useAuth();
+  const [commentError, setCommentError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!slug) return;
@@ -70,6 +71,7 @@ export const RecipeDetailPage: React.FC = () => {
   }, [recipe]);
 
   const handlePostComment = async () => {
+    setCommentError(null);
     if (!user) return;
     if (comment.trim() && recipe && recipe.id) {
       const newComment = {
@@ -80,12 +82,24 @@ export const RecipeDetailPage: React.FC = () => {
         timestamp: new Date().toISOString(),
       };
       setComment('');
-      await addRecipeComment(recipe.id, user.id, user.displayName, newComment.text);
-      // Re-fetch comments
-      const commentsData = await getRecipeComments(recipe.id);
-      setComments(commentsData);
+      try {
+        await addRecipeComment(recipe.id, user.id, user.displayName, newComment.text);
+        // Re-fetch comments
+        const commentsData = await getRecipeComments(recipe.id);
+        setComments(commentsData);
+      } catch (err) {
+        setCommentError('Failed to save comment. Please try again.');
+      }
     }
   };
+
+  // Helper to format YYYY-MM-DD as Month Day, Year
+  function formatDateString(dateStr: string | undefined) {
+    if (!dateStr) return '';
+    const [year, month, day] = dateStr.split('-');
+    const d = new Date(Number(year), Number(month) - 1, Number(day));
+    return format(d, 'MMMM d, yyyy');
+  }
 
   if (loading) {
     return <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-orange-50 to-pink-50 text-gray-500">Loading recipe...</div>;
@@ -172,7 +186,7 @@ export const RecipeDetailPage: React.FC = () => {
                 <div key={mem.id} className="bg-orange-50 rounded-lg p-4">
                   <div className="font-semibold text-orange-700 mb-1">
                     <a href={`/memory/${mem.eventCode || mem.id}`} className="hover:underline">
-                      {mem.occasion}{mem.holiday ? `: ${mem.holiday}` : ''} ({mem.date ? format(new Date(mem.date), 'MMMM d, yyyy') : ''})
+                      {mem.occasion}{mem.holiday ? `: ${mem.holiday}` : ''} ({formatDateString(mem.date)})
                     </a>
                   </div>
                   <div className="flex flex-wrap gap-3">
@@ -207,6 +221,7 @@ export const RecipeDetailPage: React.FC = () => {
               ))}
             </div>
           )}
+          {commentError && <div className="text-red-600 text-sm mb-2">{commentError}</div>}
           <div className="flex gap-2 mt-2">
             <input
               type="text"

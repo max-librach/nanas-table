@@ -3,7 +3,7 @@ import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Toast } from '../components/Toast';
-import { createRecipe, getRecipeBySlug, updateRecipe, deleteRecipe } from '../services/firebaseService';
+import { createRecipe, getRecipeBySlug, updateRecipe, deleteRecipe, getAllRecipes } from '../services/firebaseService';
 import { useAuth } from '../contexts/AuthContext';
 
 // Custom styles for Quill editor
@@ -58,6 +58,7 @@ export const AddEditRecipeForm: React.FC = () => {
   const { user } = useAuth();
   const [loading, setLoading] = useState(isEdit);
   const [recipeDocId, setRecipeDocId] = useState<string | null>(null);
+  const [allTags, setAllTags] = useState<string[]>([]);
 
   // Pre-fill fields on edit
   React.useEffect(() => {
@@ -75,6 +76,15 @@ export const AddEditRecipeForm: React.FC = () => {
       });
     }
   }, [isEdit, slug]);
+
+  // Fetch all recipes and extract unique tags for the category dropdown
+  React.useEffect(() => {
+    getAllRecipes().then(recipes => {
+      const tagsSet = new Set<string>();
+      recipes.forEach((r: any) => (r.tags || []).forEach((t: string) => tagsSet.add(t)));
+      setAllTags(Array.from(tagsSet));
+    });
+  }, []);
 
   const handleAddTag = () => {
     if (newTag && !tags.includes(newTag)) {
@@ -215,7 +225,9 @@ export const AddEditRecipeForm: React.FC = () => {
                 value=""
               >
                 <option value="">Select existing category</option>
-                {/* Add your tags here */}
+                {allTags.map(tag => (
+                  <option key={tag} value={tag}>{tag}</option>
+                ))}
               </select>
               <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
                 <input
