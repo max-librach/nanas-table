@@ -431,7 +431,7 @@ const GridMemoryCard: React.FC<GridMemoryCardProps> = ({ memory, recipes, onCont
                       onClick={e => {
                         e.stopPropagation();
                         onViewDetails();
-                        window.location.href = `/recipes/${recipe.id}`;
+                        window.location.href = `/recipes/${recipe.slug}`;
                       }}
                     >
                       {recipe.title}

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { getRecipeBySlug, getMediaByRecipeId, getMemoriesByRecipeId } from '../services/firebaseService';
+import { getRecipeBySlug, getMediaByRecipeId, getMemoriesByRecipeId, getMemory } from '../services/firebaseService';
 
 export const RecipeDetailPage: React.FC = () => {
   const { slug } = useParams();
@@ -21,9 +21,24 @@ export const RecipeDetailPage: React.FC = () => {
         Promise.all([
           getMediaByRecipeId(recipeData.id),
           getMemoriesByRecipeId(recipeData.id)
-        ]).then(([mediaData, memoriesData]) => {
+        ]).then(async ([mediaData, memoriesData]) => {
           setPhotos(mediaData);
-          setMemories(memoriesData);
+          // Find all unique memoryIds from media tagged with this recipe
+          const mediaMemoryIds = Array.from(new Set(mediaData.map(m => m.memoryId).filter(Boolean)));
+          // Fetch those memories
+          const mediaMemories = await Promise.all(mediaMemoryIds.map(id => getMemory(id)));
+          // Merge with memoriesData (avoid duplicates by id)
+          const allMemoriesMap: { [id: string]: any } = {};
+          for (const mem of [...memoriesData, ...mediaMemories]) {
+            if (mem && mem.id) allMemoriesMap[mem.id] = mem;
+          }
+          // For each memory, attach its tagged photos
+          const allMemories = Object.values(allMemoriesMap).map(mem => ({
+            ...mem,
+            taggedPhotos: (mem.media || []).filter((m: any) => m.recipeIds && m.recipeIds.includes(recipeData.id))
+              .concat(mediaData.filter(m => m.memoryId === mem.id && m.recipeIds && m.recipeIds.includes(recipeData.id)))
+          }));
+          setMemories(allMemories);
           setLoading(false);
         });
       } else {
@@ -128,10 +143,11 @@ export const RecipeDetailPage: React.FC = () => {
                     </a>
                   </div>
                   <div className="flex flex-wrap gap-3">
-                    {mem.media && mem.media.filter((m: any) => m.recipeIds && m.recipeIds.includes(recipe.id)).map((m: any) => (
-                      <img key={m.id} src={m.fileUrl} alt={m.caption || ''} className="rounded-lg w-32 h-24 object-cover bg-gray-100" />
-                    ))}
-                    {(!mem.media || mem.media.filter((m: any) => m.recipeIds && m.recipeIds.includes(recipe.id)).length === 0) && (
+                    {mem.taggedPhotos && mem.taggedPhotos.length > 0 ? (
+                      mem.taggedPhotos.map((m: any) => (
+                        <img key={m.id} src={m.fileUrl} alt={m.caption || ''} className="rounded-lg w-32 h-24 object-cover bg-gray-100" />
+                      ))
+                    ) : (
                       <span className="text-xs text-gray-400">No tagged photos in this event.</span>
                     )}
                   </div>

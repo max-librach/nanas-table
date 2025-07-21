@@ -221,7 +221,7 @@ export const MemoryDetailsPage: React.FC = () => {
                         <div key={recipe.id}>
                           <button
                             className="bg-orange-100 text-orange-700 px-3 py-1 rounded-full text-xs font-medium hover:bg-orange-200 transition-colors shadow mb-2"
-                            onClick={() => navigate(`/recipes/${recipe.id}`)}
+                            onClick={() => navigate(`/recipes/${recipe.slug}`)}
                           >
                             {recipe.title}
                           </button>

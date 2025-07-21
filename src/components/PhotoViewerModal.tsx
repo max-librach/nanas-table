@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { X, Star, Download, Share, ChevronLeft, ChevronRight, Trash2, Utensils } from 'lucide-react';
 import { Button } from './ui/button';
 import { Memory, Media } from '../types';
-import { updateMemory, deleteMedia, getAllRecipes } from '../services/firebaseService';
+import { updateMemory, deleteMedia, getAllRecipes, getMemory } from '../services/firebaseService';
 import { useAuth } from '../contexts/AuthContext';
 import { useSwipeable } from 'react-swipeable';
 import { doc, deleteDoc, updateDoc } from 'firebase/firestore';
@@ -234,6 +234,9 @@ export const PhotoViewerModal: React.FC<PhotoViewerModalProps> = ({
                 try {
                   const mediaRef = doc(db, 'media', currentPhoto.id);
                   await updateDoc(mediaRef, { recipeIds: photoRecipeTags });
+                  // Fetch updated memory and notify parent
+                  const updatedMemory = await getMemory(memory.id);
+                  if (onPhotoUpdate && updatedMemory) onPhotoUpdate(updatedMemory);
                   setShowTagModal(false);
                   setToastMessage('Recipe tags updated!');
                   setShowToast(true);
@@ -261,28 +264,27 @@ export const PhotoViewerModal: React.FC<PhotoViewerModalProps> = ({
           style={{ maxWidth: '95vw', maxHeight: '95vh' }}
           onClick={(e) => e.stopPropagation()}
         >
-          {/* Header */}
-          <div className="absolute top-4 left-4 right-4 z-10 flex items-center justify-between">
+          {/* Fixed Header Bar */}
+          <div className="sticky top-0 left-0 right-0 z-20 flex items-center justify-between bg-white/95 px-4 py-2 border-b border-orange-100">
             <div className="flex items-center space-x-2">
               <Button
                 variant="ghost"
                 size="sm"
-                className="bg-white/90 backdrop-blur-sm hover:bg-white text-gray-700"
+                className="hover:bg-orange-50 text-gray-700"
                 onClick={onClose}
               >
                 <X className="w-5 h-5" />
               </Button>
             </div>
-            
             <div className="flex items-center space-x-2">
               {/* Set as Cover */}
               <Button
                 variant="ghost"
                 size="sm"
-                className={`backdrop-blur-sm hover:bg-white/90 ${
+                className={`hover:bg-orange-50 ${
                   memory.coverPhotoId === currentPhoto.id 
                     ? 'bg-orange-100 text-orange-600' 
-                    : 'bg-white/90 text-gray-700'
+                    : 'text-gray-700'
                 }`}
                 onClick={handleSetAsCover}
                 disabled={isUpdatingCover}
@@ -290,72 +292,37 @@ export const PhotoViewerModal: React.FC<PhotoViewerModalProps> = ({
               >
                 <Star className={`w-5 h-5 ${memory.coverPhotoId === currentPhoto.id ? 'fill-current' : ''}`} />
               </Button>
-
               {/* Tag Recipe Icon */}
               <Button
                 variant="ghost"
                 size="sm"
-                className="bg-white/90 backdrop-blur-sm hover:bg-white text-gray-700"
+                className="hover:bg-orange-50 text-gray-700"
                 onClick={() => setShowTagModal(true)}
                 title="Tag with recipe(s)"
               >
                 <Utensils className="w-5 h-5" />
               </Button>
-
               {/* Download */}
               <Button
                 variant="ghost"
                 size="sm"
-                className="bg-white/90 backdrop-blur-sm hover:bg-white text-gray-700"
+                className="hover:bg-orange-50 text-gray-700"
                 onClick={handleDownload}
                 title="Download photo"
               >
                 <Download className="w-5 h-5" />
               </Button>
-
-              {/* Share */}
-              <Button
-                variant="ghost"
-                size="sm"
-                className="bg-white/90 backdrop-blur-sm hover:bg-white text-gray-700"
-                onClick={handleShare}
-                title="Share photo"
-              >
-                <Share className="w-5 h-5" />
-              </Button>
-
-              {/* Delete (admin/owner only, only once) */}
-              {(isAdmin || isPhotoOwner) && !showActionsMenu && (
+              {/* Delete (admin or owner) */}
+              {(isAdmin || isPhotoOwner) && (
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="bg-white/90 backdrop-blur-sm hover:bg-red-100 text-red-600"
-                  onClick={() => setShowActionsMenu(true)}
+                  className="hover:bg-orange-50 text-red-600"
+                  onClick={handleDelete}
                   title="Delete photo"
                 >
                   <Trash2 className="w-5 h-5" />
                 </Button>
-              )}
-              {/* Admin action menu for delete, closes on click away or after action */}
-              {showActionsMenu && (
-                <div className="absolute right-0 top-full mt-2 bg-white border border-gray-200 rounded-lg shadow-lg z-50 min-w-[120px]" onClick={e => e.stopPropagation()}>
-                  <button
-                    onClick={() => {
-                      setShowActionsMenu(false);
-                      handleDelete();
-                    }}
-                    className="w-full px-3 py-2 text-left text-red-600 hover:bg-red-50 flex items-center gap-2 rounded-lg"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                    Delete
-                  </button>
-                  <button
-                    onClick={() => setShowActionsMenu(false)}
-                    className="w-full px-3 py-2 text-left text-gray-700 hover:bg-gray-50 flex items-center gap-2 rounded-lg"
-                  >
-                    Cancel
-                  </button>
-                </div>
               )}
             </div>
           </div>
