@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { getRecipeBySlug, getMediaByRecipeId, getMemoriesByRecipeId, getMemory } from '../services/firebaseService';
+import { getRecipeBySlug, getMediaByRecipeId, getMemoriesByRecipeId, getMemory, getRecipeComments, addRecipeComment } from '../services/firebaseService';
 import { format } from 'date-fns';
+import { useAuth } from '../contexts/AuthContext';
 
 export const RecipeDetailPage: React.FC = () => {
   const { slug } = useParams();
@@ -11,7 +12,9 @@ export const RecipeDetailPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [comment, setComment] = useState('');
   const [comments, setComments] = useState<any[]>([]);
+  const [commentsLoading, setCommentsLoading] = useState(true);
   const [memories, setMemories] = useState<any[]>([]);
+  const { user } = useAuth();
 
   useEffect(() => {
     if (!slug) return;
@@ -56,13 +59,31 @@ export const RecipeDetailPage: React.FC = () => {
     });
   }, [slug]);
 
-  const handlePostComment = () => {
-    if (comment.trim()) {
-      setComments([
-        ...comments,
-        { id: Math.random().toString(), author: 'You', text: comment, date: new Date().toLocaleDateString() },
-      ]);
+  // Fetch comments when recipe is loaded
+  useEffect(() => {
+    if (!recipe || !recipe.id) return;
+    setCommentsLoading(true);
+    getRecipeComments(recipe.id).then(commentsData => {
+      setComments(commentsData);
+      setCommentsLoading(false);
+    });
+  }, [recipe]);
+
+  const handlePostComment = async () => {
+    if (!user) return;
+    if (comment.trim() && recipe && recipe.id) {
+      const newComment = {
+        recipeId: recipe.id,
+        authorId: user.id,
+        authorName: user.displayName,
+        text: comment.trim(),
+        timestamp: new Date().toISOString(),
+      };
       setComment('');
+      await addRecipeComment(recipe.id, user.id, user.displayName, newComment.text);
+      // Re-fetch comments
+      const commentsData = await getRecipeComments(recipe.id);
+      setComments(commentsData);
     }
   };
 
@@ -171,15 +192,21 @@ export const RecipeDetailPage: React.FC = () => {
         {/* Comments */}
         <div className="mb-6">
           <h2 className="font-semibold text-gray-700 mb-2 flex items-center gap-2"><span role="img" aria-label="comments">💬</span> Comments</h2>
-          <div className="space-y-2 mb-2">
-            {comments.map(c => (
-              <div key={c.id} className="bg-orange-50 rounded-lg px-4 py-2 text-sm text-gray-800">
-                <span className="font-semibold text-orange-700 mr-2">{c.author}</span>
-                {c.text}
-                <span className="text-xs text-gray-400 ml-2">{c.date}</span>
-              </div>
-            ))}
-          </div>
+          {commentsLoading ? (
+            <div className="text-gray-400">Loading comments...</div>
+          ) : (
+            <div className="space-y-2 mb-2">
+              {comments.length === 0 ? (
+                <div className="text-gray-400">No comments yet.</div>
+              ) : comments.map((c: any) => (
+                <div key={c.id} className="bg-orange-50 rounded-lg px-4 py-2 text-sm text-gray-800">
+                  <span className="font-semibold text-orange-700 mr-2">{c.authorName}</span>
+                  {c.text}
+                  <span className="text-xs text-gray-400 ml-2">{c.timestamp ? format(new Date(c.timestamp), 'MMM d, yyyy h:mm a') : ''}</span>
+                </div>
+              ))}
+            </div>
+          )}
           <div className="flex gap-2 mt-2">
             <input
               type="text"
@@ -191,6 +218,7 @@ export const RecipeDetailPage: React.FC = () => {
             <button
               onClick={handlePostComment}
               className="bg-orange-500 text-white px-4 py-2 rounded font-semibold hover:bg-orange-600 transition"
+              disabled={!user || !comment.trim()}
             >Post</button>
           </div>
         </div>

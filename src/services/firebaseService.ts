@@ -678,3 +678,31 @@ export const getMemoriesByRecipeId = async (recipeId: string): Promise<Memory[]>
     return [];
   }
 };
+
+// === Recipe Comments ===
+export const addRecipeComment = async (recipeId: string, authorId: string, authorName: string, text: string) => {
+  try {
+    const docRef = await addDoc(collection(db, 'recipeComments'), {
+      recipeId,
+      authorId,
+      authorName,
+      text,
+      timestamp: Timestamp.now().toDate().toISOString()
+    });
+    return docRef.id;
+  } catch (error) {
+    console.error('Error adding recipe comment:', error);
+    throw error;
+  }
+};
+
+export const getRecipeComments = async (recipeId: string) => {
+  try {
+    const commentsQuery = query(collection(db, 'recipeComments'), where('recipeId', '==', recipeId), orderBy('timestamp'));
+    const querySnapshot = await getDocs(commentsQuery);
+    return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  } catch (error) {
+    console.error('Error fetching recipe comments:', error);
+    return [];
+  }
+};

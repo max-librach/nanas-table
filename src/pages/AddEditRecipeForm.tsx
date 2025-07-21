@@ -3,7 +3,7 @@ import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Toast } from '../components/Toast';
-import { createRecipe, getRecipeById, updateRecipe, deleteRecipe } from '../services/firebaseService';
+import { createRecipe, getRecipeBySlug, updateRecipe, deleteRecipe } from '../services/firebaseService';
 import { useAuth } from '../contexts/AuthContext';
 
 // Custom styles for Quill editor
@@ -46,8 +46,8 @@ function slugify(str: string) {
 }
 
 export const AddEditRecipeForm: React.FC = () => {
-  const { recipeId } = useParams();
-  const isEdit = Boolean(recipeId);
+  const { slug } = useParams();
+  const isEdit = Boolean(slug);
   const [title, setTitle] = useState('');
   const [instructions, setInstructions] = useState('');
   const [tags, setTags] = useState<string[]>([]);
@@ -61,9 +61,9 @@ export const AddEditRecipeForm: React.FC = () => {
 
   // Pre-fill fields on edit
   React.useEffect(() => {
-    if (isEdit && recipeId) {
+    if (isEdit && slug) {
       setLoading(true);
-      getRecipeById(recipeId).then(recipe => {
+      getRecipeBySlug(slug).then(recipe => {
         if (recipe) {
           setTitle(recipe.title);
           setInstructions(recipe.instructions);
@@ -74,7 +74,7 @@ export const AddEditRecipeForm: React.FC = () => {
         setLoading(false);
       });
     }
-  }, [isEdit, recipeId]);
+  }, [isEdit, slug]);
 
   const handleAddTag = () => {
     if (newTag && !tags.includes(newTag)) {
