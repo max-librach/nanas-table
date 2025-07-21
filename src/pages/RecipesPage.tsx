@@ -69,7 +69,7 @@ export const RecipesPage: React.FC = () => {
               <div
                 key={recipe.id}
                 className="bg-white rounded-2xl shadow-lg overflow-hidden flex flex-col hover:shadow-xl transition cursor-pointer"
-                onClick={() => navigate(`/recipes/${recipe.id}`)}
+                onClick={() => navigate(`/recipes/${recipe.slug}`)}
               >
                 <div className="h-40 bg-gradient-to-br from-orange-100 to-pink-100 flex items-center justify-center">
                   {/* Show thumbnail if available */}

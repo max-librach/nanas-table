@@ -113,32 +113,6 @@ export const RecipeDetailPage: React.FC = () => {
           <h2 className="font-semibold text-gray-700 mb-2 flex items-center gap-2"><span role="img" aria-label="instructions">🍴</span> Instructions</h2>
           <div className="prose max-w-none" dangerouslySetInnerHTML={{ __html: recipe.instructions }} />
         </div>
-        {/* Comments */}
-        <div className="mb-6">
-          <h2 className="font-semibold text-gray-700 mb-2 flex items-center gap-2"><span role="img" aria-label="comments">💬</span> Comments</h2>
-          <div className="space-y-2 mb-2">
-            {comments.map(c => (
-              <div key={c.id} className="bg-orange-50 rounded-lg px-4 py-2 text-sm text-gray-800">
-                <span className="font-semibold text-orange-700 mr-2">{c.author}</span>
-                {c.text}
-                <span className="text-xs text-gray-400 ml-2">{c.date}</span>
-              </div>
-            ))}
-          </div>
-          <div className="flex gap-2 mt-2">
-            <input
-              type="text"
-              value={comment}
-              onChange={e => setComment(e.target.value)}
-              className="flex-1 border border-orange-200 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-100"
-              placeholder="Add a comment..."
-            />
-            <button
-              onClick={handlePostComment}
-              className="bg-orange-500 text-white px-4 py-2 rounded font-semibold hover:bg-orange-600 transition"
-            >Post</button>
-          </div>
-        </div>
         {/* Used in Events */}
         <div className="mb-6">
           <h2 className="font-semibold text-gray-700 mb-2 flex items-center gap-2"><span role="img" aria-label="calendar">📅</span> Used in Events</h2>
@@ -165,6 +139,32 @@ export const RecipeDetailPage: React.FC = () => {
               ))}
             </div>
           )}
+        </div>
+        {/* Comments */}
+        <div className="mb-6">
+          <h2 className="font-semibold text-gray-700 mb-2 flex items-center gap-2"><span role="img" aria-label="comments">💬</span> Comments</h2>
+          <div className="space-y-2 mb-2">
+            {comments.map(c => (
+              <div key={c.id} className="bg-orange-50 rounded-lg px-4 py-2 text-sm text-gray-800">
+                <span className="font-semibold text-orange-700 mr-2">{c.author}</span>
+                {c.text}
+                <span className="text-xs text-gray-400 ml-2">{c.date}</span>
+              </div>
+            ))}
+          </div>
+          <div className="flex gap-2 mt-2">
+            <input
+              type="text"
+              value={comment}
+              onChange={e => setComment(e.target.value)}
+              className="flex-1 border border-orange-200 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-100"
+              placeholder="Add a comment..."
+            />
+            <button
+              onClick={handlePostComment}
+              className="bg-orange-500 text-white px-4 py-2 rounded font-semibold hover:bg-orange-600 transition"
+            >Post</button>
+          </div>
         </div>
       </div>
     </div>
