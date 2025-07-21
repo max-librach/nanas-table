@@ -1,21 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Toast } from '../components/Toast';
-
-const mockRecipeData: { [key: string]: { title: string; instructions: string; tags: string[]; photoFiles: File[] } } = {
-  '1': {
-    title: "Nana's Famous Challah",
-    instructions: `<strong>Ingredients:</strong><br/>- 1.5 cups warm water<br/>- 2 tsp active dry yeast<br/>- 1/2 cup sugar<br/>- 1/4 cup vegetable oil<br/>- 2 large eggs<br/>- 1 tsp salt<br/>- 4.5-5 cups all-purpose flour<br/><br/><strong>Instructions:</strong><ol><li>Dissolve yeast and 1 tsp sugar in warm water. Let sit 5 minutes until foamy.</li><li>Stir in remaining sugar, oil, eggs, and salt. Gradually add flour, mixing until a soft dough forms.</li><li>Knead on a lightly floured surface for 8-10 minutes until smooth and elastic.</li><li>Place dough in a greased bowl, cover, and let rise in a warm place for 1-1.5 hours, or until doubled.</li><li>Punch down dough, divide into 3 or 6 pieces, and braid.</li><li>Place on a greased baking sheet, cover, and let rise for another 30-45 minutes.</li><li>Preheat oven to 375°F (190°C). Brush challah with egg wash (1 egg beaten with 1 tbsp water).</li><li>Bake for 25-35 minutes, or until golden brown and cooked through.</li></ol>`,
-    tags: ['Bread', 'Shabbat', 'Holiday', 'Jewish'],
-    photoFiles: [],
-  },
-};
-
-const mockTags = [
-  'Bread', 'Dessert', 'Holiday', 'Jewish', 'Main Course', 'Passover', 'Shabbat', 'Sweet'
-];
+import { createRecipe } from '../services/firebaseService';
 
 // Custom styles for Quill editor
 const quillStyles = `
@@ -59,16 +47,6 @@ export const AddEditRecipeForm: React.FC = () => {
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const navigate = useNavigate();
 
-  useEffect(() => {
-    if (isEdit && recipeId && mockRecipeData[recipeId]) {
-      const data = mockRecipeData[recipeId];
-      setTitle(data.title);
-      setInstructions(data.instructions);
-      setTags(data.tags);
-      setPhotoFiles(data.photoFiles);
-    }
-  }, [isEdit, recipeId]);
-
   const handleAddTag = () => {
     if (newTag && !tags.includes(newTag)) {
       setTags([...tags, newTag]);
@@ -92,10 +70,25 @@ export const AddEditRecipeForm: React.FC = () => {
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // TODO: Save recipe to Firestore
-    navigate('/recipes', { state: { toast: { message: 'Recipe saved! (mock)', type: 'success' } } });
+    setToast(null);
+    try {
+      const recipeData = {
+        title: title.trim(),
+        instructions: instructions.trim(),
+        tags,
+        createdBy: '', // Fill with user ID if available
+        createdByName: '', // Fill with user name if available
+        createdAt: new Date().toISOString(),
+        photoUrls: [] // Add photo upload logic if needed
+      };
+      await createRecipe(recipeData);
+      setToast({ message: 'Recipe saved!', type: 'success' });
+      setTimeout(() => navigate('/recipes'), 1000);
+    } catch (error) {
+      setToast({ message: 'Failed to save recipe. Please try again.', type: 'error' });
+    }
   };
 
   return (
@@ -160,9 +153,7 @@ export const AddEditRecipeForm: React.FC = () => {
                 value=""
               >
                 <option value="">Select existing category</option>
-                {mockTags.map(tag => (
-                  <option key={tag} value={tag}>{tag}</option>
-                ))}
+                {/* Add your tags here */}
               </select>
               <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
                 <input
