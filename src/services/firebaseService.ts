@@ -519,11 +519,12 @@ export const addContribution = async (
 // === Recipe CRUD ===
 export const createRecipe = async (recipeData: Omit<Recipe, 'id' | 'createdAt'>) => {
   try {
-    const createdAt = new Date().toISOString();
+    console.log('Attempting to create recipe:', recipeData);
     const docRef = await addDoc(collection(db, 'recipes'), {
       ...recipeData,
-      createdAt,
+      createdAt: Timestamp.now().toDate().toISOString()
     });
+    console.log('Recipe created with ID:', docRef.id);
     return docRef.id;
   } catch (error) {
     console.error('Error creating recipe:', error);

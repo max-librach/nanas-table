@@ -40,4 +40,6 @@ console.log('Current origin:', window.location.origin);
 console.log('Storage bucket from config:', storage.app.options.storageBucket);
 console.log('Actual storage bucket:', storage.bucket);
 
+console.log('Firebase config in use:', firebaseConfig);
+
 export default app;
