@@ -7,33 +7,58 @@ import { CreateMemoryPage } from './pages/CreateMemoryPage';
 import { EditMemoryPage } from './pages/EditMemoryPage';
 import { MemoryDetailsPage } from './pages/MemoryDetailsPage';
 import { PrivacyPolicyPage } from './pages/PrivacyPolicyPage';
+import { RecipesPage } from './pages/RecipesPage';
+import { AddEditRecipeForm } from './pages/AddEditRecipeForm';
+import { RecipeDetailPage } from './pages/RecipeDetailPage';
+import { Header } from './components/Header';
+import ScrollToTop from './ScrollToTop';
+
+const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+  <>
+    <Header />
+    {children}
+  </>
+);
 
 function App() {
   return (
     <AuthProvider>
       <Router>
+        <ScrollToTop />
         <Routes>
           <Route path="/" element={
-            <PrivateRoute>
-              <TimelinePage />
-            </PrivateRoute>
+            <Layout>
+              <PrivateRoute>
+                <TimelinePage />
+              </PrivateRoute>
+            </Layout>
           } />
           <Route path="/create" element={
-            <PrivateRoute>
-              <CreateMemoryPage />
-            </PrivateRoute>
+            <Layout>
+              <PrivateRoute>
+                <CreateMemoryPage />
+              </PrivateRoute>
+            </Layout>
           } />
           <Route path="/memory/:eventCode/edit" element={
-            <PrivateRoute>
-              <EditMemoryPage />
-            </PrivateRoute>
+            <Layout>
+              <PrivateRoute>
+                <EditMemoryPage />
+              </PrivateRoute>
+            </Layout>
           } />
           <Route path="/memory/:eventCode" element={
-            <PrivateRoute>
-              <MemoryDetailsPage />
-            </PrivateRoute>
+            <Layout>
+              <PrivateRoute>
+                <MemoryDetailsPage />
+              </PrivateRoute>
+            </Layout>
           } />
           <Route path="/privacy" element={<PrivacyPolicyPage />} />
+          <Route path="/recipes" element={<Layout><RecipesPage /></Layout>} />
+          <Route path="/recipes/new" element={<Layout><AddEditRecipeForm /></Layout>} />
+          <Route path="/recipes/:recipeId" element={<Layout><RecipeDetailPage /></Layout>} />
+          <Route path="/recipes/:recipeId/edit" element={<Layout><AddEditRecipeForm /></Layout>} />
         </Routes>
       </Router>
     </AuthProvider>

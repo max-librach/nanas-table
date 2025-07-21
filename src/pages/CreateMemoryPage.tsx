@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Camera, Heart, Save, Video } from 'lucide-react';
 import { Button } from '../components/ui/button';
@@ -11,8 +11,9 @@ import { Checkbox } from '../components/ui/checkbox';
 import { Toast } from '../components/Toast';
 import { FAMILY_MEMBERS_LIST, HOLIDAYS } from '../constants';
 import { createMemory } from '../services/firebaseService';
-import { uploadMediaWithProgress } from '../services/firebaseService';
+import { uploadMediaWithProgress, getAllRecipes } from '../services/firebaseService';
 import { useAuth } from '../contexts/AuthContext';
+import { RecipeTagSelector } from '../components/RecipeTagSelector';
 
 export const CreateMemoryPage: React.FC = () => {
   const navigate = useNavigate();
@@ -45,6 +46,30 @@ export const CreateMemoryPage: React.FC = () => {
   );
 
   const [otherAttendee, setOtherAttendee] = useState('');
+
+  const [allRecipes, setAllRecipes] = useState<{ id: string; title: string }[]>([]);
+  const [photoRecipeTags, setPhotoRecipeTags] = useState<string[][]>([]); // Array of recipeIds per photo
+
+  // State for structured recipe tagging
+  const [mealRecipeIds, setMealRecipeIds] = useState<string[]>([]);
+  const [dessertRecipeIds, setDessertRecipeTagIds] = useState<string[]>([]);
+
+  // State for toggling recipe tagging for meal/dessert
+  const [showMealRecipeTag, setShowMealRecipeTag] = useState(false);
+  const [showDessertRecipeTag, setShowDessertRecipeTag] = useState(false);
+
+  useEffect(() => {
+    getAllRecipes().then(setAllRecipes);
+  }, []);
+
+  // Update photoRecipeTags when media changes
+  useEffect(() => {
+    setPhotoRecipeTags((prev) => {
+      if (formData.media.length === prev.length) return prev;
+      // Add empty arrays for new files
+      return Array(formData.media.length).fill(null).map((_, i) => prev[i] || []);
+    });
+  }, [formData.media.length]);
 
   const handleInputChange = (field: string, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -151,7 +176,9 @@ export const CreateMemoryPage: React.FC = () => {
         attendees: selectedAttendees,
         otherAttendees: attendees['Other'] && otherAttendee.trim() ? otherAttendee.trim() : undefined,
         createdBy: user.id,
-        createdByName: user.displayName || ''
+        createdByName: user.displayName || '',
+        mealRecipeIds,
+        dessertRecipeIds
       };
       
       // Remove undefined/null/empty values except for createdByName
@@ -184,19 +211,17 @@ export const CreateMemoryPage: React.FC = () => {
             const file = mediaFiles[i];
             const caption = mediaCaptions?.[i] || '';
             const isVideo = file.type.startsWith('video/');
-            
+            const recipeIds = photoRecipeTags[i] || [];
             console.log(`Uploading file ${i + 1}/${mediaFiles.length}:`, file.name);
             updateProgress(i, 10); // Start progress
-            
             if (isVideo) {
               setToast({ 
                 message: `Uploading video ${i + 1}/${mediaFiles.length}... This may take a while.`, 
                 type: 'success' 
               });
             }
-            
             updateProgress(i, 50); // Mid progress
-            await uploadMediaWithProgress(file, memoryId, caption, user.id, user.displayName, () => {});
+            await uploadMediaWithProgress(file, memoryId, caption, user.id, user.displayName, () => {}, recipeIds);
             updateProgress(i, 100); // Complete
           }
           
@@ -245,29 +270,17 @@ export const CreateMemoryPage: React.FC = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 to-pink-50">
       {/* Header */}
-      <div className="bg-white/80 backdrop-blur-sm border-b border-orange-100 sticky top-0 z-10">
-        <div className="max-w-4xl mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              className="text-gray-600 hover:text-gray-800"
-              onClick={() => navigate('/')}
-            >
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Back
-            </Button>
-            <div className="w-8 h-8 bg-gradient-to-br from-orange-400 to-pink-400 rounded-full flex items-center justify-center">
-              <img 
-                src="/nanas-table-logo.jpg" 
-                alt="Nana's Table" 
-                className="w-full h-full object-cover rounded-full"
-              />
-            </div>
-            <div>
-              <h1 className="text-lg font-bold text-gray-800">Create New Memory</h1>
-            </div>
-          </div>
+      <div className="bg-white/90 backdrop-blur-sm border-b border-orange-100 sticky top-0 z-10">
+        <div className="max-w-2xl mx-auto px-4 py-4 flex items-center gap-3">
+          <button
+            type="button"
+            className="text-gray-600 hover:text-gray-800 flex items-center gap-1"
+            onClick={() => navigate('/')}
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
+            Back
+          </button>
+          <h1 className="text-lg font-bold text-gray-800 ml-2">Create New Memory</h1>
         </div>
       </div>
 
@@ -275,7 +288,7 @@ export const CreateMemoryPage: React.FC = () => {
       <div className="max-w-2xl mx-auto px-4 py-6">
         <Card className="shadow-lg border-0 bg-white/90 backdrop-blur-sm">
           <CardHeader>
-            <CardTitle className="text-xl text-gray-800">Add a New Memory</CardTitle>
+            <CardTitle className="text-xl text-gray-800"> Add a New Memory</CardTitle>
             <CardDescription className="text-gray-600">
               What did we eat, who was there, what made it special?
             </CardDescription>
@@ -412,6 +425,28 @@ export const CreateMemoryPage: React.FC = () => {
                       className="border-gray-200 focus:border-orange-300 focus:ring-orange-200 min-h-[60px]"
                       required
                     />
+                    <div className="mt-5 mb-6">
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          id="meal-recipe-checkbox"
+                          checked={showMealRecipeTag}
+                          onChange={e => setShowMealRecipeTag(e.target.checked)}
+                        />
+                        <label htmlFor="meal-recipe-checkbox" className="text-sm text-gray-700 cursor-pointer">
+                          Did the meal contain a family recipe?
+                        </label>
+                      </div>
+                      {showMealRecipeTag && (
+                        <RecipeTagSelector
+                          allRecipes={allRecipes}
+                          selectedRecipeIds={mealRecipeIds}
+                          onChange={setMealRecipeIds}
+                          hideCheckbox={true}
+                        />
+                      )}
+                    </div>
+                    <div style={{ marginBottom: '2rem' }} />
                     <Label htmlFor="dessert" className="font-semibold">Dessert</Label>
                     <Textarea
                       id="dessert"
@@ -419,6 +454,29 @@ export const CreateMemoryPage: React.FC = () => {
                       onChange={e => handleInputChange('dessert', e.target.value)}
                       placeholder="e.g. brownies, ice cream, fruit salad"
                     />
+                    <div className="mt-5 mb-3">
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          id="dessert-recipe-checkbox"
+                          checked={showDessertRecipeTag}
+                          onChange={e => setShowDessertRecipeTag(e.target.checked)}
+                        />
+                        <label htmlFor="dessert-recipe-checkbox" className="text-sm text-gray-700 cursor-pointer">
+                          Did dessert contain a family recipe?
+                        </label>
+                      </div>
+                      {showDessertRecipeTag && (
+                        <div className="mb-6">
+                          <RecipeTagSelector
+                            allRecipes={allRecipes}
+                            selectedRecipeIds={dessertRecipeIds}
+                            onChange={setDessertRecipeTagIds}
+                            hideCheckbox={true}
+                          />
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -512,7 +570,14 @@ export const CreateMemoryPage: React.FC = () => {
                             ✕
                           </button>
                         </div>
-                        
+                        {/* RecipeTagSelector for this photo */}
+                        <div className="mt-2">
+                          <RecipeTagSelector
+                            allRecipes={allRecipes}
+                            selectedRecipeIds={photoRecipeTags[index] || []}
+                            onChange={(newIds) => setPhotoRecipeTags(tags => tags.map((t, i) => i === index ? newIds : t))}
+                          />
+                        </div>
                         {/* Upload Progress Bar (shown during submission) */}
                         {isSubmitting && formData.uploadProgress[index] > 0 && (
                           <div className="mt-2">

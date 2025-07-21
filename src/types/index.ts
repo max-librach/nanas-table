@@ -21,6 +21,7 @@ export interface Memory {
   media: Media[];
   coverPhotoId?: string;
   eventCode?: string;
+  recipeIds?: string[];
 }
 
 export interface Note {
@@ -34,17 +35,30 @@ export interface Note {
 
 export interface Media {
   id: string;
-  memoryId: string;
   fileUrl: string;
   fileType: 'image' | 'video';
   caption?: string;
   uploadedBy: string;
   uploadedByName: string;
   timestamp: string;
+  memoryId?: string;
+  recipeIds?: string[];
+  type?: 'event' | 'recipe';
 }
 
 export interface ContributionForm {
   note?: string;
   media?: File[];
   mediaCaptions?: string[];
+}
+
+export interface Recipe {
+  id: string;
+  title: string;
+  instructions: string;
+  tags: string[];
+  createdBy: string;
+  createdByName: string;
+  createdAt: string;
+  photoUrls: string[];
 }

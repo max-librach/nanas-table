@@ -2,12 +2,11 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { format, parse } from 'date-fns';
 import { Calendar, Users, ChefHat, Star, Camera, Eye, Plus, Heart, Video, ChevronLeft, ChevronRight, Trash2, MoreVertical } from 'lucide-react';
-import { Header } from '../components/Header';
 import { VideoPlayer } from '../components/VideoPlayer';
 import { Memory, Media } from '../types';
 import { ContributionModal } from '../components/ContributionModal';
 import { DeleteMemoryModal } from '../components/DeleteMemoryModal';
-import { getMemories, deleteMemory as deleteMemoryFromDB } from '../services/firebaseService';
+import { getMemories, deleteMemory as deleteMemoryFromDB, getAllRecipes } from '../services/firebaseService';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardDescription, CardTitle } from '../components/ui/card';
@@ -27,13 +26,15 @@ export const TimelinePage: React.FC = () => {
   const [photoViewerOpen, setPhotoViewerOpen] = useState(false);
   const [photoViewerMemory, setPhotoViewerMemory] = useState<Memory | null>(null);
   const [photoViewerPhoto, setPhotoViewerPhoto] = useState<Media | null>(null);
+  const [recipes, setRecipes] = useState<{ id: string; title: string }[]>([]);
 
   // Check if current user is Max (admin)
   const isAdmin = user?.email === 'maxlibrach@gmail.com';
 
-  // Load memories from Firebase
+  // Load memories and recipes from Firebase
   useEffect(() => {
     loadMemories();
+    getAllRecipes().then(setRecipes);
   }, []);
 
   const loadMemories = async () => {
@@ -74,8 +75,6 @@ export const TimelinePage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 to-pink-50">
-      <Header />
-      
       <main className="max-w-4xl mx-auto px-4 py-6">
         <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
@@ -122,6 +121,7 @@ export const TimelinePage: React.FC = () => {
               <GridMemoryCard 
                 key={memory.id} 
                 memory={memory} 
+                recipes={recipes}
                 onContribute={handleContribute}
                 onViewDetails={() => navigate(`/memory/${memory.eventCode}`)}
                 onDelete={isAdmin ? () => handleDeleteMemory(memory) : undefined}
@@ -177,6 +177,7 @@ export const TimelinePage: React.FC = () => {
 // Grid Layout with enhanced carousel controls and swipe support
 interface GridMemoryCardProps {
   memory: Memory;
+  recipes: { id: string; title: string }[];
   onContribute: (memory: Memory) => void;
   onViewDetails: () => void;
   onDelete?: () => void;
@@ -184,7 +185,7 @@ interface GridMemoryCardProps {
   onPhotoClick?: (photo: Media, memory: Memory) => void;
 }
 
-const GridMemoryCard: React.FC<GridMemoryCardProps> = ({ memory, onContribute, onViewDetails, onDelete, isAdmin, onPhotoClick }) => {
+const GridMemoryCard: React.FC<GridMemoryCardProps> = ({ memory, recipes, onContribute, onViewDetails, onDelete, isAdmin, onPhotoClick }) => {
   // Find the cover photo or default to first photo
   const coverPhotoIndex = memory.coverPhotoId 
     ? memory.media.findIndex(m => m.id === memory.coverPhotoId)
@@ -257,6 +258,14 @@ const GridMemoryCard: React.FC<GridMemoryCardProps> = ({ memory, onContribute, o
   const displayTitle = memory.occasion === 'Holiday Meal' ? memory.holiday : memory.occasion;
   const latestNote = memory.notes.length > 0 ? memory.notes[memory.notes.length - 1] : null;
 
+  // Gather all unique recipeIds from media
+  const recipeIdsFromPhotos = Array.from(new Set(
+    memory.media.flatMap(m => m.recipeIds || [])
+  ));
+  const recipeChips = recipeIdsFromPhotos
+    .map(id => recipes.find(r => r.id === id))
+    .filter(Boolean) as { id: string; title: string }[];
+
   return (
     <Card className="shadow-md border-0 bg-white/90 backdrop-blur-sm hover:shadow-lg transition-shadow">
       <CardContent className="p-4">
@@ -286,6 +295,19 @@ const GridMemoryCard: React.FC<GridMemoryCardProps> = ({ memory, onContribute, o
                       }}
                       style={{ cursor: 'pointer' }}
                     />
+                  )}
+                  {/* Recipe tag chips for current photo */}
+                  {memory.media[currentPhotoIndex]?.recipeIds && memory.media[currentPhotoIndex].recipeIds.length > 0 && (
+                    <div className="absolute top-3 left-3 flex flex-wrap gap-2 z-10">
+                      {memory.media[currentPhotoIndex].recipeIds.map((rid: string) => {
+                        const recipe = recipes.find(r => r.id === rid);
+                        return recipe ? (
+                          <Badge key={rid} variant="secondary" className="bg-orange-200 text-orange-800 text-xs px-2 py-0.5">
+                            {recipe.title}
+                          </Badge>
+                        ) : null;
+                      })}
+                    </div>
                   )}
                   {/* Navigation arrows (desktop only) */}
                   {memory.media.length > 1 && !isMobile && (
@@ -389,6 +411,36 @@ const GridMemoryCard: React.FC<GridMemoryCardProps> = ({ memory, onContribute, o
               </div>
             </div>
 
+            {/* What we ate */}
+            <div className="mt-2">
+              <div className="text-sm font-semibold text-gray-700 mb-1">What we ate:</div>
+              <div className="pl-2 text-sm text-gray-700">
+                <div><span className="font-semibold">Meal:</span> {memory.meal || 'Not specified'}</div>
+                <div><span className="font-semibold">Dessert:</span> {memory.dessert || 'Not specified'}</div>
+              </div>
+            </div>
+            {/* Family recipes used */}
+            {recipeChips.length > 0 && (
+              <div className="mt-2">
+                <div className="text-sm font-semibold text-gray-700 mb-1">Family recipes used:</div>
+                <div className="flex flex-wrap gap-2">
+                  {recipeChips.map(recipe => (
+                    <button
+                      key={recipe.id}
+                      className="bg-orange-100 text-orange-700 px-3 py-1 rounded-full text-xs font-medium hover:bg-orange-200 transition-colors shadow"
+                      onClick={e => {
+                        e.stopPropagation();
+                        onViewDetails();
+                        window.location.href = `/recipes/${recipe.id}`;
+                      }}
+                    >
+                      {recipe.title}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div className="space-y-2 text-sm">
               <div className="flex items-center space-x-2 text-gray-600">
                 <Users className="w-3 h-3" />
@@ -396,13 +448,6 @@ const GridMemoryCard: React.FC<GridMemoryCardProps> = ({ memory, onContribute, o
                   {memory.attendees.join(', ')}
                   {memory.otherAttendees && `, ${memory.otherAttendees}`}
                 </span>
-              </div>
-              <div className="text-gray-700">
-                <span className="font-medium">What we ate:</span>
-                <div className="pl-2">
-                  <div><span className="font-semibold">Meal:</span> {memory.meal || (memory as any).food || 'Not specified'}</div>
-                  <div><span className="font-semibold">Dessert:</span> {memory.dessert || 'Not specified'}</div>
-                </div>
               </div>
               {memory.celebration && (
                 <div className="text-gray-700">

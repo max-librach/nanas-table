@@ -9,7 +9,9 @@ import {
   query, 
   orderBy, 
   where,
-  Timestamp 
+  Timestamp,
+  arrayUnion,
+  arrayRemove
 } from 'firebase/firestore';
 import { 
   ref, 
@@ -20,7 +22,7 @@ import {
 } from 'firebase/storage';
 import { db, storage } from '../firebase/config';
 import { auth } from '../firebase/config';
-import { Memory, Note, Media } from '../types';
+import { Memory, Note, Media, Recipe } from '../types';
 
 // Memory operations
 export const createMemory = async (memoryData: Omit<Memory, 'id' | 'createdAt' | 'notes' | 'media'>) => {
@@ -323,7 +325,8 @@ export const uploadMediaWithProgress = (
   caption: string,
   uploadedBy: string,
   uploadedByName: string,
-  onProgress: (progress: number) => void
+  onProgress: (progress: number) => void,
+  recipeIds?: string[]
 ): Promise<string> => {
   return new Promise(async (resolve, reject) => {
     try {
@@ -394,7 +397,8 @@ export const uploadMediaWithProgress = (
               caption: caption && caption.trim() ? caption.trim() : undefined,
               uploadedBy,
               uploadedByName,
-              timestamp: Timestamp.now().toDate().toISOString()
+              timestamp: Timestamp.now().toDate().toISOString(),
+              ...(recipeIds && recipeIds.length > 0 ? { recipeIds } : {})
             };
             const cleanMediaData = Object.fromEntries(
               Object.entries(mediaData).filter(([_, value]) => value !== undefined && value !== null && value !== '')
@@ -418,7 +422,8 @@ export const uploadMultipleMedia = async (
   captions: string[],
   uploadedBy: string,
   uploadedByName: string,
-  onProgress: (index: number, progress: number) => void
+  onProgress: (index: number, progress: number) => void,
+  recipeIdsList?: string[][]
 ): Promise<string[]> => {
   const results: string[] = [];
   const errors: Error[] = [];
@@ -432,7 +437,8 @@ export const uploadMultipleMedia = async (
         captions[i] || '',
         uploadedBy,
         uploadedByName,
-        (progress) => onProgress(i, progress)
+        (progress) => onProgress(i, progress),
+        recipeIdsList ? recipeIdsList[i] : undefined
       );
       results.push(fileId);
       
@@ -499,7 +505,7 @@ export const addContribution = async (
     if (mediaFiles && mediaFiles.length > 0) {
       mediaFiles.forEach((file, index) => {
         const caption = mediaCaptions?.[index] || '';
-        promises.push(uploadMediaWithProgress(file, memoryId, caption, authorId, authorName, () => {}));
+        promises.push(uploadMediaWithProgress(file, memoryId, caption, authorId, authorName, () => {}, []));
       });
     }
     
@@ -507,5 +513,103 @@ export const addContribution = async (
   } catch (error) {
     console.error('Error adding contribution:', error);
     throw error;
+  }
+};
+
+// === Recipe CRUD ===
+export const createRecipe = async (recipeData: Omit<Recipe, 'id' | 'createdAt'>) => {
+  try {
+    const createdAt = new Date().toISOString();
+    const docRef = await addDoc(collection(db, 'recipes'), {
+      ...recipeData,
+      createdAt,
+    });
+    return docRef.id;
+  } catch (error) {
+    console.error('Error creating recipe:', error);
+    throw error;
+  }
+};
+
+export const getRecipes = async (): Promise<Recipe[]> => {
+  try {
+    const querySnapshot = await getDocs(collection(db, 'recipes'));
+    return querySnapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() } as Recipe));
+  } catch (error) {
+    console.error('Error fetching recipes:', error);
+    return [];
+  }
+};
+
+export const updateRecipe = async (id: string, updateData: Partial<Omit<Recipe, 'id' | 'createdAt'>>) => {
+  try {
+    const docRef = doc(db, 'recipes', id);
+    await updateDoc(docRef, updateData);
+  } catch (error) {
+    console.error('Error updating recipe:', error);
+    throw error;
+  }
+};
+
+export const deleteRecipe = async (id: string) => {
+  try {
+    const docRef = doc(db, 'recipes', id);
+    await deleteDoc(docRef);
+  } catch (error) {
+    console.error('Error deleting recipe:', error);
+    throw error;
+  }
+};
+
+// === Recipe Tagging for Media ===
+export const tagPhotoWithRecipe = async (mediaId: string, recipeId: string) => {
+  try {
+    const mediaRef = doc(db, 'media', mediaId);
+    await updateDoc(mediaRef, { recipeIds: arrayUnion(recipeId) });
+  } catch (error) {
+    console.error('Error tagging photo with recipe:', error);
+    throw error;
+  }
+};
+
+export const untagPhotoFromRecipe = async (mediaId: string, recipeId: string) => {
+  try {
+    const mediaRef = doc(db, 'media', mediaId);
+    await updateDoc(mediaRef, { recipeIds: arrayRemove(recipeId) });
+  } catch (error) {
+    console.error('Error untagging photo from recipe:', error);
+    throw error;
+  }
+};
+
+// === Recipe Tagging for Memories ===
+export const tagMemoryWithRecipe = async (memoryId: string, recipeId: string) => {
+  try {
+    const memoryRef = doc(db, 'memories', memoryId);
+    await updateDoc(memoryRef, { recipeIds: arrayUnion(recipeId) });
+  } catch (error) {
+    console.error('Error tagging memory with recipe:', error);
+    throw error;
+  }
+};
+
+export const untagMemoryFromRecipe = async (memoryId: string, recipeId: string) => {
+  try {
+    const memoryRef = doc(db, 'memories', memoryId);
+    await updateDoc(memoryRef, { recipeIds: arrayRemove(recipeId) });
+  } catch (error) {
+    console.error('Error untagging memory from recipe:', error);
+    throw error;
+  }
+};
+
+export const getAllRecipes = async (): Promise<Recipe[]> => {
+  try {
+    const recipesQuery = query(collection(db, 'recipes'), orderBy('title'));
+    const querySnapshot = await getDocs(recipesQuery);
+    return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Recipe));
+  } catch (error) {
+    console.error('Error fetching recipes:', error);
+    return [];
   }
 };

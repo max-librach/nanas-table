@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, Camera, MessageSquare } from 'lucide-react';
 import { Memory } from '../types';
 import { Toast } from './Toast';
-import { addContribution, uploadMultipleMedia, addNote } from '../services/firebaseService';
+import { addContribution, uploadMultipleMedia, addNote, getAllRecipes } from '../services/firebaseService';
 import { useAuth } from '../contexts/AuthContext';
+import { RecipeTagSelector } from './RecipeTagSelector';
 
 interface ContributionModalProps {
   memory: Memory;
@@ -19,6 +20,19 @@ export const ContributionModal: React.FC<ContributionModalProps> = ({ memory, on
   const [mediaProgress, setMediaProgress] = useState<number[]>([]);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [allRecipes, setAllRecipes] = useState<{ id: string; title: string }[]>([]);
+  const [photoRecipeTags, setPhotoRecipeTags] = useState<string[][]>([]);
+
+  useEffect(() => {
+    getAllRecipes().then(setAllRecipes);
+  }, []);
+
+  useEffect(() => {
+    setPhotoRecipeTags((prev) => {
+      if (media.length === prev.length) return prev;
+      return Array(media.length).fill(null).map((_, i) => prev[i] || []);
+    });
+  }, [media.length]);
 
   const handleMediaUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
@@ -68,7 +82,8 @@ export const ContributionModal: React.FC<ContributionModalProps> = ({ memory, on
               updated[idx] = progress;
               return updated;
             });
-          }
+          },
+          photoRecipeTags
         );
       }
       
@@ -165,6 +180,14 @@ export const ContributionModal: React.FC<ContributionModalProps> = ({ memory, on
                           onChange={(e) => handleMediaCaptionChange(index, e.target.value)}
                           className="mt-1 w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-rose-500 focus:border-rose-500"
                         />
+                        {/* RecipeTagSelector for this photo */}
+                        <div className="mt-2">
+                          <RecipeTagSelector
+                            allRecipes={allRecipes}
+                            selectedRecipeIds={photoRecipeTags[index] || []}
+                            onChange={(newIds) => setPhotoRecipeTags(tags => tags.map((t, i) => i === index ? newIds : t))}
+                          />
+                        </div>
                         {/* Progress bar */}
                         {isSubmitting && (
                           <div className="mt-2 h-2 w-full bg-gray-200 rounded">

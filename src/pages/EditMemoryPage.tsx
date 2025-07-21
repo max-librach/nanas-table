@@ -10,12 +10,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Checkbox } from '../components/ui/checkbox';
 import { Toast } from '../components/Toast';
 import { FAMILY_MEMBERS_LIST, HOLIDAYS } from '../constants';
-import { getMemory, updateMemory } from '../services/firebaseService';
+import { getMemoryByEventCode, updateMemory } from '../services/firebaseService';
 import { useAuth } from '../contexts/AuthContext';
 import { Memory } from '../types';
 
 export const EditMemoryPage: React.FC = () => {
-  const { id } = useParams<{ id: string }>();
+  const { eventCode } = useParams<{ eventCode: string }>();
+  const id = eventCode;
   const navigate = useNavigate();
   const { user } = useAuth();
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
@@ -58,11 +59,11 @@ export const EditMemoryPage: React.FC = () => {
     
     try {
       setLoading(true);
-      const memoryData = await getMemory(id);
+      const memoryData = await getMemoryByEventCode(id);
       
       if (!memoryData) {
         setToast({ message: 'Memory not found', type: 'error' });
-        navigate('/');
+        setLoading(false);
         return;
       }
 
@@ -208,6 +209,9 @@ export const EditMemoryPage: React.FC = () => {
             </Button>
           </CardContent>
         </Card>
+        {toast && (
+          <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />
+        )}
       </div>
     );
   }

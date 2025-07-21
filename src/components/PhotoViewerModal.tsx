@@ -1,13 +1,14 @@
-import React, { useState } from 'react';
-import { X, Star, Download, Share, ChevronLeft, ChevronRight, Trash2 } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { X, Star, Download, Share, ChevronLeft, ChevronRight, Trash2, Utensils } from 'lucide-react';
 import { Button } from './ui/button';
 import { Memory, Media } from '../types';
-import { updateMemory, deleteMedia } from '../services/firebaseService';
+import { updateMemory, deleteMedia, getAllRecipes } from '../services/firebaseService';
 import { useAuth } from '../contexts/AuthContext';
 import { useSwipeable } from 'react-swipeable';
-import { doc, deleteDoc } from 'firebase/firestore';
+import { doc, deleteDoc, updateDoc } from 'firebase/firestore';
 import { ref, deleteObject } from 'firebase/storage';
 import { db, storage } from '../firebase/config';
+import { RecipeTagSelector } from './RecipeTagSelector';
 
 interface PhotoViewerModalProps {
   isOpen: boolean;
@@ -29,6 +30,11 @@ export const PhotoViewerModal: React.FC<PhotoViewerModalProps> = ({
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
   const [currentPhotoId, setCurrentPhotoId] = useState(selectedPhoto.id);
+  const [allRecipes, setAllRecipes] = useState<{ id: string; title: string }[]>([]);
+  const [photoRecipeTags, setPhotoRecipeTags] = useState<string[]>(selectedPhoto?.recipeIds || []);
+  const [showTagModal, setShowTagModal] = useState(false);
+  const tagButtonRef = useRef<HTMLButtonElement>(null);
+  const [showActionsMenu, setShowActionsMenu] = useState(false);
 
   // Find the current photo index based on currentPhotoId
   const currentPhotoIndex = memory.media.findIndex(m => m.id === currentPhotoId);
@@ -51,6 +57,14 @@ export const PhotoViewerModal: React.FC<PhotoViewerModalProps> = ({
     trackMouse: false,
     delta: 20,
   });
+
+  useEffect(() => {
+    getAllRecipes().then(setAllRecipes);
+  }, []);
+
+  useEffect(() => {
+    setPhotoRecipeTags(currentPhoto?.recipeIds || []);
+  }, [currentPhotoId]);
 
   const nextPhoto = () => {
     if (hasNext) {
@@ -179,6 +193,15 @@ export const PhotoViewerModal: React.FC<PhotoViewerModalProps> = ({
     }
   };
 
+  useEffect(() => {
+    if (!showActionsMenu) return;
+    function handleClick(e: MouseEvent) {
+      setShowActionsMenu(false);
+    }
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [showActionsMenu]);
+
   if (!isOpen) return null;
 
   return (
@@ -189,14 +212,53 @@ export const PhotoViewerModal: React.FC<PhotoViewerModalProps> = ({
           {toastMessage}
         </div>
       )}
+      {/* Tag Recipe Modal */}
+      {showTagModal && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40" onClick={() => setShowTagModal(false)}>
+          <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-md mx-auto" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-bold text-gray-800">Tag this photo with a family recipe</h2>
+              <button onClick={() => setShowTagModal(false)} className="text-gray-500 hover:text-gray-800 text-xl">&times;</button>
+            </div>
+            <RecipeTagSelector
+              allRecipes={allRecipes}
+              selectedRecipeIds={photoRecipeTags}
+              onChange={setPhotoRecipeTags}
+              hideCheckbox
+            />
+            <div className="flex justify-end mt-4 gap-2">
+              <Button size="sm" variant="outline" onClick={() => setShowTagModal(false)}>
+                Cancel
+              </Button>
+              <Button size="sm" variant="default" onClick={async () => {
+                try {
+                  const mediaRef = doc(db, 'media', currentPhoto.id);
+                  await updateDoc(mediaRef, { recipeIds: photoRecipeTags });
+                  setShowTagModal(false);
+                  setToastMessage('Recipe tags updated!');
+                  setShowToast(true);
+                  setTimeout(() => setShowToast(false), 2000);
+                } catch (err) {
+                  setToastMessage('Failed to update recipe tags');
+                  setShowToast(true);
+                  setTimeout(() => setShowToast(false), 2000);
+                }
+              }}>
+                Save
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
       {/* Backdrop */}
       <div 
         className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4"
         onClick={onClose}
       >
         {/* Modal Content */}
-        <div 
-          className="relative max-w-4xl max-h-[90vh] w-full bg-white rounded-2xl shadow-2xl overflow-hidden"
+        <div
+          className="relative bg-white rounded-2xl shadow-2xl overflow-hidden inline-block mx-auto"
+          style={{ maxWidth: '95vw', maxHeight: '95vh' }}
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
@@ -229,6 +291,17 @@ export const PhotoViewerModal: React.FC<PhotoViewerModalProps> = ({
                 <Star className={`w-5 h-5 ${memory.coverPhotoId === currentPhoto.id ? 'fill-current' : ''}`} />
               </Button>
 
+              {/* Tag Recipe Icon */}
+              <Button
+                variant="ghost"
+                size="sm"
+                className="bg-white/90 backdrop-blur-sm hover:bg-white text-gray-700"
+                onClick={() => setShowTagModal(true)}
+                title="Tag with recipe(s)"
+              >
+                <Utensils className="w-5 h-5" />
+              </Button>
+
               {/* Download */}
               <Button
                 variant="ghost"
@@ -251,29 +324,60 @@ export const PhotoViewerModal: React.FC<PhotoViewerModalProps> = ({
                 <Share className="w-5 h-5" />
               </Button>
 
-              {/* Delete (admin/owner only) */}
-              {(isAdmin || isPhotoOwner) && (
+              {/* Delete (admin/owner only, only once) */}
+              {(isAdmin || isPhotoOwner) && !showActionsMenu && (
                 <Button
                   variant="ghost"
                   size="sm"
                   className="bg-white/90 backdrop-blur-sm hover:bg-red-100 text-red-600"
-                  onClick={handleDelete}
+                  onClick={() => setShowActionsMenu(true)}
                   title="Delete photo"
                 >
                   <Trash2 className="w-5 h-5" />
                 </Button>
               )}
+              {/* Admin action menu for delete, closes on click away or after action */}
+              {showActionsMenu && (
+                <div className="absolute right-0 top-full mt-2 bg-white border border-gray-200 rounded-lg shadow-lg z-50 min-w-[120px]" onClick={e => e.stopPropagation()}>
+                  <button
+                    onClick={() => {
+                      setShowActionsMenu(false);
+                      handleDelete();
+                    }}
+                    className="w-full px-3 py-2 text-left text-red-600 hover:bg-red-50 flex items-center gap-2 rounded-lg"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    Delete
+                  </button>
+                  <button
+                    onClick={() => setShowActionsMenu(false)}
+                    className="w-full px-3 py-2 text-left text-gray-700 hover:bg-gray-50 flex items-center gap-2 rounded-lg"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              )}
             </div>
           </div>
 
           {/* Photo */}
-          <div className="relative w-full h-full" {...(isMobile ? handlers : {})}>
+          <div
+            className="relative flex items-center justify-center w-auto h-auto"
+            {...(isMobile ? handlers : {})}
+          >
             <img
               src={currentPhoto.fileUrl}
               alt={currentPhoto.caption || 'Photo'}
-              className="w-full h-full object-contain"
+              className="object-contain block mx-auto"
+              style={{ maxWidth: '90vw', maxHeight: isMobile ? '100dvh' : '80vh' }}
             />
-            {/* Navigation Arrows (desktop only) */}
+            {/* Attribution overlay in lower left */}
+            <div className="absolute bottom-4 left-4 z-20 pointer-events-none">
+              <span className="text-white text-xs font-medium shadow-md bg-black/40 px-2 py-1 rounded pointer-events-auto">
+                by {currentPhoto.uploadedByName}
+              </span>
+            </div>
+            {/* Carousel Arrows (desktop only) */}
             {hasPrev && !isMobile && (
               <Button
                 variant="ghost"
@@ -281,6 +385,7 @@ export const PhotoViewerModal: React.FC<PhotoViewerModalProps> = ({
                 className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/90 backdrop-blur-sm hover:bg-white text-gray-700"
                 onClick={prevPhoto}
                 title="Previous photo"
+                style={{ zIndex: 30 }}
               >
                 <ChevronLeft className="w-6 h-6" />
               </Button>
@@ -292,22 +397,25 @@ export const PhotoViewerModal: React.FC<PhotoViewerModalProps> = ({
                 className="absolute right-4 top-1/2 -translate-y-1/2 bg-white/90 backdrop-blur-sm hover:bg-white text-gray-700"
                 onClick={nextPhoto}
                 title="Next photo"
+                style={{ zIndex: 30 }}
               >
                 <ChevronRight className="w-6 h-6" />
               </Button>
             )}
-          </div>
-
-          {/* Footer with photo info */}
-          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-6">
-            <div className="text-white">
-              {currentPhoto.caption && (
-                <p className="text-lg font-medium mb-2">{currentPhoto.caption}</p>
-              )}
-              <p className="text-white/80">
-                by {currentPhoto.uploadedByName}
-              </p>
-            </div>
+            {/* Recipe tags as chips in lower right corner */}
+            {photoRecipeTags.length > 0 && allRecipes.length > 0 && (
+              <div className="absolute bottom-4 right-4 flex flex-wrap gap-2 z-20 pointer-events-none">
+                {photoRecipeTags.map(id => {
+                  const recipe = allRecipes.find(r => r.id === id);
+                  if (!recipe) return null;
+                  return (
+                    <span key={id} className="bg-orange-100 text-orange-700 px-2 py-1 rounded-full text-xs font-medium shadow pointer-events-auto">
+                      {recipe.title}
+                    </span>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
       </div>
