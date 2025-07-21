@@ -3,14 +3,16 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { Toast } from '../components/Toast';
 import { Plus } from 'lucide-react';
 import { Button } from '../components/ui/button';
-import { getAllRecipes } from '../services/firebaseService';
+import { getAllRecipes, getMediaByRecipeId } from '../services/firebaseService';
 
 export const RecipesPage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [recipes, setRecipes] = useState<any[]>([]);
+  const [thumbnails, setThumbnails] = useState<{ [recipeId: string]: string }>({});
   const [loading, setLoading] = useState(true);
+  const [thumbsLoading, setThumbsLoading] = useState(true);
 
   useEffect(() => {
     if (location.state && (location.state as any).toast) {
@@ -19,9 +21,25 @@ export const RecipesPage: React.FC = () => {
       window.history.replaceState({}, document.title);
     }
     // Fetch recipes from Firestore
-    getAllRecipes().then((data) => {
+    getAllRecipes().then(async (data) => {
       setRecipes(data);
       setLoading(false);
+      // For recipes with no photoUrls, fetch first tagged photo
+      const thumbPromises = data.map(async (recipe: any) => {
+        if (recipe.photoUrls && recipe.photoUrls.length > 0) return;
+        const media = await getMediaByRecipeId(recipe.id);
+        if (media && media.length > 0) {
+          return { recipeId: recipe.id, url: media[0].fileUrl };
+        }
+        return null;
+      });
+      const thumbResults = await Promise.all(thumbPromises);
+      const thumbMap: { [recipeId: string]: string } = {};
+      thumbResults.forEach(res => {
+        if (res && res.recipeId && res.url) thumbMap[res.recipeId] = res.url;
+      });
+      setThumbnails(thumbMap);
+      setThumbsLoading(false);
     });
   }, [location.state]);
 
@@ -41,7 +59,7 @@ export const RecipesPage: React.FC = () => {
             Add New Recipe
           </Button>
         </div>
-        {loading ? (
+        {loading || thumbsLoading ? (
           <div className="text-center text-gray-500 py-12">Loading recipes...</div>
         ) : recipes.length === 0 ? (
           <div className="text-center text-gray-500 py-12">No recipes found. Add your first family recipe!</div>
@@ -57,6 +75,8 @@ export const RecipesPage: React.FC = () => {
                   {/* Show thumbnail if available */}
                   {recipe.photoUrls && recipe.photoUrls.length > 0 ? (
                     <img src={recipe.photoUrls[0]} alt={recipe.title} className="h-full w-full object-cover" />
+                  ) : thumbnails[recipe.id] ? (
+                    <img src={thumbnails[recipe.id]} alt={recipe.title} className="h-full w-full object-cover" />
                   ) : (
                     <span className="text-lg text-gray-400">{recipe.title}</span>
                   )}

@@ -614,3 +614,28 @@ export const getAllRecipes = async (): Promise<Recipe[]> => {
     return [];
   }
 };
+
+// Fetch a single recipe by ID
+export const getRecipeById = async (id: string): Promise<Recipe | null> => {
+  try {
+    const docRef = doc(db, 'recipes', id);
+    const docSnap = await getDoc(docRef);
+    if (!docSnap.exists()) return null;
+    return { id: docSnap.id, ...docSnap.data() } as Recipe;
+  } catch (error) {
+    console.error('Error fetching recipe by ID:', error);
+    return null;
+  }
+};
+
+// Fetch all media tagged with a given recipeId
+export const getMediaByRecipeId = async (recipeId: string): Promise<Media[]> => {
+  try {
+    const mediaQuery = query(collection(db, 'media'), where('recipeIds', 'array-contains', recipeId));
+    const querySnapshot = await getDocs(mediaQuery);
+    return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Media));
+  } catch (error) {
+    console.error('Error fetching media by recipeId:', error);
+    return [];
+  }
+};
