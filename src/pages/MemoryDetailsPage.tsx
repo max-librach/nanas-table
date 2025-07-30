@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { format } from 'date-fns';
+import { format, parse } from 'date-fns';
 import { ArrowLeft, Calendar, Camera, Cake, Heart, Users, Video, Utensils, MessageCircle, Edit, Plus, Trash2, MoreVertical, Star } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { VideoPlayer } from '../components/VideoPlayer';
@@ -181,9 +181,9 @@ export const MemoryDetailsPage: React.FC = () => {
                     </CardTitle>
                     <CardDescription
                       className="text-lg text-gray-600 whitespace-nowrap"
-                      title={format(new Date(memory.date), 'EEEE, MMMM d, yyyy')}
+                      title={format(parse(memory.date, 'yyyy-MM-dd', new Date()), 'EEEE, MMMM d, yyyy')}
                     >
-                      {format(new Date(memory.date), 'EEEE, MMM d, yyyy')}
+                      {format(parse(memory.date, 'yyyy-MM-dd', new Date()), 'EEEE, MMM d, yyyy')}
                     </CardDescription>
                   </div>
                 </div>
