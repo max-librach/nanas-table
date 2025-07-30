@@ -336,6 +336,7 @@ export const PhotoViewerModal: React.FC<PhotoViewerModalProps> = ({
               src={currentPhoto.fileUrl}
               alt={currentPhoto.caption || 'Photo'}
               className="object-contain block mx-auto"
+              loading="lazy"
               style={{ maxWidth: '90vw', maxHeight: isMobile ? '100dvh' : '80vh' }}
             />
             {/* Attribution overlay in lower left */}

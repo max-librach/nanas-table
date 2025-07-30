@@ -233,6 +233,7 @@ export const MemoryDetailsPage: React.FC = () => {
                                   src={photo.fileUrl}
                                   alt={photo.caption || recipe.title}
                                   className="w-20 h-20 object-cover rounded-lg cursor-pointer border border-orange-100 hover:opacity-80 transition"
+                                  loading="lazy"
                                   onClick={() => {
                                     setSelectedPhoto(photo);
                                     setShowPhotoViewer(true);
@@ -301,6 +302,7 @@ export const MemoryDetailsPage: React.FC = () => {
                             src={media.fileUrl}
                             alt={media.caption || ''}
                             className="w-full aspect-square object-cover rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
+                            loading="lazy"
                             onClick={() => {
                               setSelectedPhoto(media);
                               setShowPhotoViewer(true);

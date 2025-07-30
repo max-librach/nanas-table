@@ -99,6 +99,60 @@ export const getMemories = async (): Promise<Memory[]> => {
     const querySnapshot = await getDocs(memoriesQuery);
     console.log('Found', querySnapshot.docs.length, 'memory documents');
     
+    if (querySnapshot.empty) {
+      return [];
+    }
+
+    // Get all memory IDs for batch queries
+    const memoryIds = querySnapshot.docs.map(doc => doc.id);
+    
+    // Batch query for all notes
+    const notesQuery = query(
+      collection(db, 'notes'),
+      where('memoryId', 'in', memoryIds)
+    );
+    
+    // Batch query for all media
+    const mediaQuery = query(
+      collection(db, 'media'),
+      where('memoryId', 'in', memoryIds)
+    );
+    
+    // Execute both queries in parallel
+    const [notesSnapshot, mediaSnapshot] = await Promise.all([
+      getDocs(notesQuery),
+      getDocs(mediaQuery)
+    ]);
+    
+    // Create lookup maps for efficient data association
+    const notesByMemoryId = new Map<string, Note[]>();
+    const mediaByMemoryId = new Map<string, Media[]>();
+    
+    // Process notes
+    notesSnapshot.docs.forEach(noteDoc => {
+      const noteData = { id: noteDoc.id, ...noteDoc.data() } as Note;
+      const memoryId = noteData.memoryId;
+      if (memoryId && !notesByMemoryId.has(memoryId)) {
+        notesByMemoryId.set(memoryId, []);
+      }
+      if (memoryId) {
+        notesByMemoryId.get(memoryId)!.push(noteData);
+      }
+    });
+    
+    // Process media
+    mediaSnapshot.docs.forEach(mediaDoc => {
+      const mediaData = { id: mediaDoc.id, ...mediaDoc.data() } as Media;
+      const memoryId = mediaData.memoryId;
+      if (memoryId && !mediaByMemoryId.has(memoryId)) {
+        mediaByMemoryId.set(memoryId, []);
+      }
+      if (memoryId) {
+        mediaByMemoryId.get(memoryId)!.push(mediaData);
+      }
+    });
+    
+    // Build memories with associated data
     const memories: Memory[] = [];
     for (const doc of querySnapshot.docs) {
       try {
@@ -108,50 +162,15 @@ export const getMemories = async (): Promise<Memory[]> => {
         const memoryData = { 
           id: doc.id, 
           ...docData,
-          notes: [], // Initialize empty arrays
-          media: []
+          notes: notesByMemoryId.get(doc.id) || [],
+          media: mediaByMemoryId.get(doc.id) || []
         } as Memory;
         
-        // Get notes for this memory (with error handling)
-        try {
-          // Simplified query without orderBy to avoid index requirement
-          const notesQuery = query(
-            collection(db, 'notes'), 
-            where('memoryId', '==', doc.id)
-          );
-          const notesSnapshot = await getDocs(notesQuery);
-          const notes = notesSnapshot.docs.map(noteDoc => ({ 
-            id: noteDoc.id, 
-            ...noteDoc.data() 
-          })) as Note[];
-          // Sort in memory instead of using Firestore orderBy
-          memoryData.notes = notes.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
-          console.log('Found', memoryData.notes.length, 'notes for memory', doc.id);
-        } catch (notesError) {
-          console.warn('Error fetching notes for memory', doc.id, ':', notesError);
-          memoryData.notes = []; // Continue with empty notes array
-        }
+        // Sort notes and media by timestamp
+        memoryData.notes.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+        memoryData.media.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
         
-        // Get media for this memory (with error handling)
-        try {
-          // Simplified query without orderBy to avoid index requirement
-          const mediaQuery = query(
-            collection(db, 'media'), 
-            where('memoryId', '==', doc.id)
-          );
-          const mediaSnapshot = await getDocs(mediaQuery);
-          const media = mediaSnapshot.docs.map(mediaDoc => ({ 
-            id: mediaDoc.id, 
-            ...mediaDoc.data() 
-          })) as Media[];
-          // Sort in memory instead of using Firestore orderBy
-          memoryData.media = media.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
-          console.log('Found', memoryData.media.length, 'media items for memory', doc.id);
-        } catch (mediaError) {
-          console.warn('Error fetching media for memory', doc.id, ':', mediaError);
-          memoryData.media = []; // Continue with empty media array
-        }
-        
+        console.log('Found', memoryData.notes.length, 'notes and', memoryData.media.length, 'media items for memory', doc.id);
         memories.push(memoryData);
         console.log('Successfully processed memory:', memoryData.id, memoryData);
       } catch (docError) {

@@ -91,8 +91,15 @@ export const TimelinePage: React.FC = () => {
         </div>
 
         {loading ? (
-          <div className="flex items-center justify-center py-12">
-            <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-orange-400"></div>
+          <div className="flex flex-col items-center justify-center py-12">
+            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-br from-orange-100 to-pink-100 flex items-center justify-center">
+              <svg className="w-8 h-8 text-orange-500" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+              </svg>
+            </div>
+            <h3 className="text-lg font-semibold text-gray-700 mb-2">Loading memories...</h3>
+            <p className="text-gray-500 text-sm">Gathering your family moments</p>
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-400 mt-4"></div>
           </div>
         ) : memories.length === 0 ? (
           <Card className="text-center py-12 bg-white/90 backdrop-blur-sm">
@@ -290,6 +297,7 @@ const GridMemoryCard: React.FC<GridMemoryCardProps> = ({ memory, recipes, onCont
                       src={memory.media[currentPhotoIndex]?.fileUrl}
                       alt={memory.media[currentPhotoIndex]?.caption || `${displayTitle} media ${currentPhotoIndex + 1}`}
                       className="w-full h-full object-cover"
+                      loading="lazy"
                       onClick={() => {
                         if (onPhotoClick) onPhotoClick(memory.media[currentPhotoIndex], memory);
                       }}
