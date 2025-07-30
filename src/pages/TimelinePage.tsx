@@ -1,12 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { format, parse } from 'date-fns';
-import { Calendar, Users, ChefHat, Star, Camera, Eye, Plus, Heart, Video, ChevronLeft, ChevronRight, Trash2, MoreVertical } from 'lucide-react';
+import { Calendar, Users, ChefHat, Star, Camera, Eye, Plus, Heart, Video, ChevronLeft, ChevronRight, Trash2, MoreVertical, Utensils, Cake, MessageCircle } from 'lucide-react';
 import { VideoPlayer } from '../components/VideoPlayer';
 import { Memory, Media } from '../types';
-import { ContributionModal } from '../components/ContributionModal';
 import { DeleteMemoryModal } from '../components/DeleteMemoryModal';
-import { getMemories, deleteMemory as deleteMemoryFromDB, getAllRecipes } from '../services/firebaseService';
+import { getMemories, deleteMemory as deleteMemoryFromDB, getAllRecipes, getMemoryComments } from '../services/firebaseService';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardDescription, CardTitle } from '../components/ui/card';
@@ -19,14 +18,13 @@ export const TimelinePage: React.FC = () => {
   const { user } = useAuth();
   const [memories, setMemories] = useState<Memory[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedMemory, setSelectedMemory] = useState<Memory | null>(null);
-  const [showContribution, setShowContribution] = useState(false);
   const [memoryToDelete, setMemoryToDelete] = useState<Memory | null>(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [photoViewerOpen, setPhotoViewerOpen] = useState(false);
   const [photoViewerMemory, setPhotoViewerMemory] = useState<Memory | null>(null);
   const [photoViewerPhoto, setPhotoViewerPhoto] = useState<Media | null>(null);
   const [recipes, setRecipes] = useState<{ id: string; title: string }[]>([]);
+  const [memoryComments, setMemoryComments] = useState<{ [memoryId: string]: any[] }>({});
 
   // Check if current user is Max (admin)
   const isAdmin = user?.email === 'maxlibrach@gmail.com';
@@ -37,21 +35,49 @@ export const TimelinePage: React.FC = () => {
     getAllRecipes().then(setRecipes);
   }, []);
 
+  // Refresh comments when memories change
+  useEffect(() => {
+    if (memories.length > 0) {
+      const loadComments = async () => {
+        const commentsMap: { [memoryId: string]: any[] } = {};
+        for (const memory of memories) {
+          try {
+            const comments = await getMemoryComments(memory.id);
+            commentsMap[memory.id] = comments;
+          } catch (error) {
+            console.error(`Error loading comments for memory ${memory.id}:`, error);
+            commentsMap[memory.id] = [];
+          }
+        }
+        setMemoryComments(commentsMap);
+      };
+      loadComments();
+    }
+  }, [memories]);
+
   const loadMemories = async () => {
     try {
       setLoading(true);
       const memoriesData = await getMemories();
       setMemories(memoriesData);
+      
+      // Load comments for all memories
+      const commentsMap: { [memoryId: string]: any[] } = {};
+      for (const memory of memoriesData) {
+        try {
+          const comments = await getMemoryComments(memory.id);
+          commentsMap[memory.id] = comments;
+        } catch (error) {
+          console.error(`Error loading comments for memory ${memory.id}:`, error);
+          commentsMap[memory.id] = [];
+        }
+      }
+      setMemoryComments(commentsMap);
     } catch (error) {
       console.error('Error loading memories:', error);
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleContribute = (memory: Memory) => {
-    setSelectedMemory(memory);
-    setShowContribution(true);
   };
 
   const handleDeleteMemory = (memory: Memory) => {
@@ -129,7 +155,7 @@ export const TimelinePage: React.FC = () => {
                 key={memory.id} 
                 memory={memory} 
                 recipes={recipes}
-                onContribute={handleContribute}
+                comments={memoryComments[memory.id] || []}
                 onViewDetails={() => navigate(`/memory/${memory.eventCode}`)}
                 onDelete={isAdmin ? () => handleDeleteMemory(memory) : undefined}
                 isAdmin={isAdmin}
@@ -143,17 +169,6 @@ export const TimelinePage: React.FC = () => {
           </div>
         )}
       </main>
-
-      {showContribution && selectedMemory && (
-        <ContributionModal
-          memory={selectedMemory}
-          onClose={() => setShowContribution(false)}
-          onSubmit={() => {
-            setShowContribution(false);
-            loadMemories(); // Refresh memories to show new contributions
-          }}
-        />
-      )}
 
       {showDeleteModal && memoryToDelete && (
         <DeleteMemoryModal
@@ -185,14 +200,14 @@ export const TimelinePage: React.FC = () => {
 interface GridMemoryCardProps {
   memory: Memory;
   recipes: { id: string; title: string }[];
-  onContribute: (memory: Memory) => void;
+  comments: any[];
   onViewDetails: () => void;
   onDelete?: () => void;
   isAdmin?: boolean;
   onPhotoClick?: (photo: Media, memory: Memory) => void;
 }
 
-const GridMemoryCard: React.FC<GridMemoryCardProps> = ({ memory, recipes, onContribute, onViewDetails, onDelete, isAdmin, onPhotoClick }) => {
+const GridMemoryCard: React.FC<GridMemoryCardProps> = ({ memory, recipes, comments, onViewDetails, onDelete, isAdmin, onPhotoClick }) => {
   // Find the cover photo or default to first photo
   const coverPhotoIndex = memory.coverPhotoId 
     ? memory.media.findIndex(m => m.id === memory.coverPhotoId)
@@ -263,7 +278,7 @@ const GridMemoryCard: React.FC<GridMemoryCardProps> = ({ memory, recipes, onCont
   });
 
   const displayTitle = memory.occasion === 'Holiday Meal' ? memory.holiday : memory.occasion;
-  const latestNote = memory.notes.length > 0 ? memory.notes[memory.notes.length - 1] : null;
+  const latestComment = comments.length > 0 ? comments[comments.length - 1] : null;
 
   // Gather all unique recipeIds from media
   const recipeIdsFromPhotos = Array.from(new Set(
@@ -364,32 +379,42 @@ const GridMemoryCard: React.FC<GridMemoryCardProps> = ({ memory, recipes, onCont
           {/* Content Section */}
           <div className="space-y-3">
             <div className="flex items-start justify-between relative">
-              <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 bg-gradient-to-br from-orange-100 to-pink-100 rounded-full flex items-center justify-center">
-                  <Calendar className="w-5 h-5 text-orange-500" />
-                </div>
-                <div>
-                  <CardTitle className="text-lg text-gray-800">{displayTitle}</CardTitle>
-                  <CardDescription className="text-sm text-gray-600">
-                    {format(parse(memory.date, 'yyyy-MM-dd', new Date()), 'MMM d, yyyy')}
-                  </CardDescription>
-                </div>
-              </div>
-              <div className="flex items-center space-x-1">
-                {photos.length > 0 && (
-                  <Badge variant="secondary" className="bg-orange-100 text-orange-700 text-xs">
-                    <Camera className="w-2 h-2 mr-1" />
-                    {photos.length}
-                  </Badge>
-                )}
-                {videos.length > 0 && (
-                  <Badge variant="secondary" className="bg-pink-100 text-pink-700 text-xs">
-                    <Video className="w-2 h-2 mr-1" />
-                    {videos.length}
-                  </Badge>
-                )}
-                
-                {onDelete && (
+                                <div className="flex items-center space-x-3">
+                    <div className="w-10 h-10 bg-gradient-to-br from-orange-100 to-pink-100 rounded-full flex items-center justify-center">
+                      <Calendar className="w-5 h-5 text-orange-500" />
+                    </div>
+                    <div>
+                      <CardTitle className="text-lg text-gray-800">{displayTitle}</CardTitle>
+                      <CardDescription className="text-sm text-gray-600">
+                        {(() => {
+                          const [year, month, day] = memory.date.split('-');
+                          const d = new Date(Number(year), Number(month) - 1, Number(day));
+                          return format(d, 'MMM d, yyyy');
+                        })()}
+                      </CardDescription>
+                    </div>
+                  </div>
+                  <div className="flex items-center space-x-1">
+                    {photos.length > 0 && (
+                      <Badge variant="secondary" className="bg-orange-100 text-orange-700 text-xs">
+                        <Camera className="w-2 h-2 mr-1" />
+                        {photos.length}
+                      </Badge>
+                    )}
+                    {videos.length > 0 && (
+                      <Badge variant="secondary" className="bg-pink-100 text-pink-700 text-xs">
+                        <Video className="w-2 h-2 mr-1" />
+                        {videos.length}
+                      </Badge>
+                    )}
+                    {comments.length > 0 && (
+                      <Badge variant="secondary" className="bg-green-100 text-green-700 text-xs">
+                        <MessageCircle className="w-2 h-2 mr-1" />
+                        {comments.length}
+                      </Badge>
+                    )}
+                    
+                    {onDelete && (
                   <div className="relative">
                     <Button
                       variant="ghost"
@@ -419,78 +444,99 @@ const GridMemoryCard: React.FC<GridMemoryCardProps> = ({ memory, recipes, onCont
               </div>
             </div>
 
-            {/* What we ate */}
-            <div className="mt-2">
-              <div className="text-sm font-semibold text-gray-700 mb-1">What we ate:</div>
-              <div className="pl-2 text-sm text-gray-700">
-                <div><span className="font-semibold">Meal:</span> {memory.meal || 'Not specified'}</div>
-                <div><span className="font-semibold">Dessert:</span> {memory.dessert || 'Not specified'}</div>
-              </div>
-            </div>
-            {/* Family recipes used */}
-            {recipeChips.length > 0 && (
-              <div className="mt-2">
-                <div className="text-sm font-semibold text-gray-700 mb-1">Family recipes used:</div>
-                <div className="flex flex-wrap gap-2">
-                  {recipeChips.map(recipe => (
-                    <button
-                      key={recipe.id}
-                      className="bg-orange-100 text-orange-700 px-3 py-1 rounded-full text-xs font-medium hover:bg-orange-200 transition-colors shadow"
-                      onClick={e => {
-                        e.stopPropagation();
-                        onViewDetails();
-                        window.location.href = `/recipes/${recipe.slug}`;
-                      }}
-                    >
-                      {recipe.title}
-                    </button>
-                  ))}
+            {/* Content sections with better visual hierarchy */}
+            <div className="space-y-4 mt-4">
+              {/* What we ate section */}
+              <div className="bg-orange-50 rounded-lg p-3 border border-orange-100">
+                <div className="flex items-center gap-2 mb-2">
+                  <Utensils className="w-4 h-4 text-orange-600" />
+                  <h4 className="font-semibold text-gray-800 text-sm">What we ate</h4>
+                </div>
+                <div className="space-y-1 text-sm text-gray-700">
+                  <div><span className="font-medium">Meal:</span> {memory.meal || 'Not specified'}</div>
+                  <div><span className="font-medium">Dessert:</span> {memory.dessert || 'Not specified'}</div>
                 </div>
               </div>
-            )}
 
-            <div className="space-y-2 text-sm">
-              <div className="flex items-center space-x-2 text-gray-600">
-                <Users className="w-3 h-3" />
-                <span className="text-xs">
+              {/* Family recipes used */}
+              {recipeChips.length > 0 && (
+                <div className="bg-pink-50 rounded-lg p-3 border border-pink-100">
+                  <div className="flex items-center gap-2 mb-2">
+                    <ChefHat className="w-4 h-4 text-pink-600" />
+                    <h4 className="font-semibold text-gray-800 text-sm">Family recipes used</h4>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {recipeChips.map(recipe => (
+                      <button
+                        key={recipe.id}
+                        className="bg-pink-100 text-pink-700 px-3 py-1 rounded-full text-xs font-medium hover:bg-pink-200 transition-colors shadow"
+                        onClick={e => {
+                          e.stopPropagation();
+                          onViewDetails();
+                          window.location.href = `/recipes/${recipe.slug}`;
+                        }}
+                      >
+                        {recipe.title}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Who was there section */}
+              <div className="bg-blue-50 rounded-lg p-3 border border-blue-100">
+                <div className="flex items-center gap-2 mb-2">
+                  <Users className="w-4 h-4 text-blue-600" />
+                  <h4 className="font-semibold text-gray-800 text-sm">Who was there</h4>
+                </div>
+                <div className="text-sm text-gray-700">
                   {memory.attendees.join(', ')}
                   {memory.otherAttendees && `, ${memory.otherAttendees}`}
-                </span>
+                </div>
               </div>
+
+              {/* Celebration section */}
               {memory.celebration && (
-                <div className="text-gray-700">
-                  <span className="font-medium">Celebration:</span> {memory.celebration}
+                <div className="bg-purple-50 rounded-lg p-3 border border-purple-100">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Cake className="w-4 h-4 text-purple-600" />
+                    <h4 className="font-semibold text-gray-800 text-sm">Celebration</h4>
+                  </div>
+                  <div className="text-sm text-gray-700">
+                    {memory.celebration}
+                  </div>
                 </div>
               )}
-              {memory.notes.length > 0 && (
-                <div className="space-y-1">
-                  {memory.notes.map((note) => (
-                    <div key={note.id} className="text-gray-600 italic text-xs">
-                      "{note.text}" - {note.authorName}
-                    </div>
-                  ))}
+
+              {/* Memory comments section */}
+              {comments.length > 0 && (
+                <div className="bg-green-50 rounded-lg p-3 border border-green-100">
+                  <div className="flex items-center gap-2 mb-2">
+                    <MessageCircle className="w-4 h-4 text-green-600" />
+                    <h4 className="font-semibold text-gray-800 text-sm">Comments</h4>
+                  </div>
+                  <div className="space-y-2">
+                    {comments.map((comment) => (
+                      <div key={comment.id} className="text-sm text-gray-700 italic bg-white/50 rounded p-2">
+                        "{comment.text}" - {comment.authorName}
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
-              <div className="flex items-center gap-2 pt-2 flex-wrap">
+            </div>
+
+            {/* Action buttons */}
+                          <div className="flex items-center justify-center pt-4">
                 <Button
-                  variant="outline"
                   size="sm"
                   onClick={onViewDetails}
-                  className="text-orange-600 border-orange-200 hover:bg-orange-50 bg-transparent text-xs h-7"
+                  className="bg-gradient-to-r from-orange-400 to-pink-400 hover:from-orange-500 hover:to-pink-500 text-white text-xs h-8 px-6"
                 >
                   <Eye className="w-3 h-3 mr-1" />
-                  View Details
-                </Button>
-                <Button
-                  size="sm"
-                  onClick={() => onContribute(memory)}
-                  className="bg-gradient-to-r from-orange-400 to-pink-400 hover:from-orange-500 hover:to-pink-500 text-white text-xs h-7"
-                >
-                  <Plus className="w-3 h-3 mr-1" />
-                  Contribute
+                  View
                 </Button>
               </div>
-            </div>
           </div>
         </div>
       </CardContent>

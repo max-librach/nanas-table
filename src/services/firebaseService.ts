@@ -112,7 +112,7 @@ export const getMemories = async (): Promise<Memory[]> => {
       where('memoryId', 'in', memoryIds)
     );
     
-    // Batch query for all media
+        // Batch query for all media
     const mediaQuery = query(
       collection(db, 'media'),
       where('memoryId', 'in', memoryIds)
@@ -222,7 +222,7 @@ export const getMemory = async (id: string): Promise<Memory | null> => {
       ...mediaDoc.data() 
     })) as Media[];
     memoryData.media = media.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
-    
+
     return memoryData;
   } catch (error) {
     console.error('Error getting memory:', error);
@@ -314,6 +314,12 @@ export const deleteMemory = async (id: string) => {
       return deleteDoc(mediaDoc.ref);
     });
     await Promise.all(mediaDeletePromises);
+
+    // Delete all memory comments for this memory
+    const memoryCommentsQuery = query(collection(db, 'memoryComments'), where('memoryId', '==', id));
+    const memoryCommentsSnapshot = await getDocs(memoryCommentsQuery);
+    const memoryCommentDeletePromises = memoryCommentsSnapshot.docs.map(commentDoc => deleteDoc(commentDoc.ref));
+    await Promise.all(memoryCommentDeletePromises);
     
     // Delete the memory itself
     await deleteDoc(doc(db, 'memories', id));
@@ -723,5 +729,87 @@ export const getRecipeComments = async (recipeId: string) => {
   } catch (error) {
     console.error('Error fetching recipe comments:', error);
     return [];
+  }
+};
+
+// === Memory Comments ===
+export const addMemoryComment = async (memoryId: string, authorId: string, authorName: string, text: string) => {
+  try {
+    const docRef = await addDoc(collection(db, 'memoryComments'), {
+      memoryId,
+      authorId,
+      authorName,
+      text,
+      timestamp: Timestamp.now().toDate().toISOString()
+    });
+    return docRef.id;
+  } catch (error) {
+    console.error('Error adding memory comment:', error);
+    throw error;
+  }
+};
+
+export const getMemoryComments = async (memoryId: string) => {
+  try {
+    const commentsQuery = query(collection(db, 'memoryComments'), where('memoryId', '==', memoryId));
+    const querySnapshot = await getDocs(commentsQuery);
+    const comments = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as any[];
+    // Sort in memory instead of using Firestore orderBy to avoid index requirement
+    return comments.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+  } catch (error) {
+    console.error('Error fetching memory comments:', error);
+    return [];
+  }
+};
+
+// === Data Migration: Move old contribute modal comments to new comments system ===
+export const migrateOldCommentsToNewSystem = async () => {
+  try {
+    console.log('Starting migration of old contribute modal comments...');
+    
+    // Get all memories
+    const memories = await getMemories();
+    let migratedCount = 0;
+    
+    for (const memory of memories) {
+      // Check if memory has notes (old contribute modal comments)
+      if (memory.notes && memory.notes.length > 0) {
+        console.log(`Migrating ${memory.notes.length} comments for memory ${memory.id}`);
+        
+        for (const note of memory.notes) {
+          try {
+            // Add to new comments system
+            await addMemoryComment(
+              memory.id,
+              note.authorId || 'unknown',
+              note.authorName || 'Unknown User',
+              note.text
+            );
+            migratedCount++;
+          } catch (error) {
+            console.error(`Failed to migrate comment ${note.id} for memory ${memory.id}:`, error);
+          }
+        }
+      }
+    }
+    
+    console.log(`Migration complete. Migrated ${migratedCount} comments.`);
+    return migratedCount;
+  } catch (error) {
+    console.error('Error during comment migration:', error);
+    throw error;
+  }
+};
+
+// === Run Migration (call this once to migrate data) ===
+export const runMigration = async () => {
+  try {
+    console.log('Running data migration...');
+    const migratedCount = await migrateOldCommentsToNewSystem();
+    console.log(`Migration completed successfully. Migrated ${migratedCount} comments.`);
+    return migratedCount;
+  } catch (error) {
+    console.error('Migration failed:', error);
+    throw error;
   }
 };

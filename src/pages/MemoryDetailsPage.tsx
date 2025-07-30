@@ -1,15 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { format, parse } from 'date-fns';
-import { ArrowLeft, Calendar, Camera, Cake, Heart, Users, Video, Utensils, MessageCircle, Edit, Plus, Trash2, MoreVertical, Star } from 'lucide-react';
+import { ArrowLeft, Calendar, Camera, Cake, Heart, Users, Video, Utensils, MessageCircle, Edit, Plus, Trash2, MoreVertical, Star, ChefHat } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { VideoPlayer } from '../components/VideoPlayer';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
 import { Memory, Media } from '../types';
-import { ContributionModal } from '../components/ContributionModal';
+import { MediaUploadModal } from '../components/MediaUploadModal';
 import { DeleteMemoryModal } from '../components/DeleteMemoryModal';
-import { getMemory, deleteMemory as deleteMemoryFromDB, updateMemory, getMemoryByEventCode, getAllRecipes } from '../services/firebaseService';
+import { getMemory, deleteMemory as deleteMemoryFromDB, updateMemory, getMemoryByEventCode, getAllRecipes, getMemoryComments, addMemoryComment } from '../services/firebaseService';
 import { useAuth } from '../contexts/AuthContext';
 import { PhotoViewerModal } from '../components/PhotoViewerModal';
 
@@ -19,13 +19,17 @@ export const MemoryDetailsPage: React.FC = () => {
   const { user } = useAuth();
   const [memory, setMemory] = useState<Memory | null>(null);
   const [recipes, setRecipes] = useState<{ id: string; title: string }[]>([]);
-  const [showContribution, setShowContribution] = useState(false);
+  const [showMediaUpload, setShowMediaUpload] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showActionsMenu, setShowActionsMenu] = useState(false);
   const [loading, setLoading] = useState(true);
   const [showPhotoViewer, setShowPhotoViewer] = useState(false);
   const [selectedPhoto, setSelectedPhoto] = useState<Media | null>(null);
   const actionsMenuRef = useRef<HTMLDivElement>(null);
+  const [comments, setComments] = useState<any[]>([]);
+  const [commentsLoading, setCommentsLoading] = useState(true);
+  const [comment, setComment] = useState('');
+  const [commentError, setCommentError] = useState<string | null>(null);
 
   // Check if current user is Max (admin)
   const isAdmin = user?.email === 'maxlibrach@gmail.com';
@@ -36,6 +40,32 @@ export const MemoryDetailsPage: React.FC = () => {
     }
     getAllRecipes().then(setRecipes);
   }, [eventCode]);
+
+  // Load comments when memory is loaded
+  useEffect(() => {
+    if (!memory || !memory.id) return;
+    setCommentsLoading(true);
+    getMemoryComments(memory.id).then(commentsData => {
+      setComments(commentsData);
+      setCommentsLoading(false);
+    });
+  }, [memory]);
+
+  const handlePostComment = async () => {
+    setCommentError(null);
+    if (!user || !memory) return;
+    if (comment.trim() && memory.id) {
+      try {
+        await addMemoryComment(memory.id, user.id, user.displayName, comment.trim());
+        setComment('');
+        // Re-fetch comments
+        const commentsData = await getMemoryComments(memory.id);
+        setComments(commentsData);
+      } catch (err) {
+        setCommentError('Failed to save comment. Please try again.');
+      }
+    }
+  };
 
   // Click-away handler for delete action menu
   useEffect(() => {
@@ -181,9 +211,17 @@ export const MemoryDetailsPage: React.FC = () => {
                     </CardTitle>
                     <CardDescription
                       className="text-lg text-gray-600 whitespace-nowrap"
-                      title={format(parse(memory.date, 'yyyy-MM-dd', new Date()), 'EEEE, MMMM d, yyyy')}
+                      title={(() => {
+                        const [year, month, day] = memory.date.split('-');
+                        const d = new Date(Number(year), Number(month) - 1, Number(day));
+                        return format(d, 'EEEE, MMMM d, yyyy');
+                      })()}
                     >
-                      {format(parse(memory.date, 'yyyy-MM-dd', new Date()), 'EEEE, MMM d, yyyy')}
+                      {(() => {
+                        const [year, month, day] = memory.date.split('-');
+                        const d = new Date(Number(year), Number(month) - 1, Number(day));
+                        return format(d, 'EEEE, MMM d, yyyy');
+                      })()}
                     </CardDescription>
                   </div>
                 </div>
@@ -192,13 +230,13 @@ export const MemoryDetailsPage: React.FC = () => {
 
             <CardContent className="space-y-6">
               {/* Attendees */}
-              <Section icon={<Users className="w-5 h-5 text-gray-600" />} title="Who was there">
+              <Section icon={<Users className="w-5 h-5 text-blue-600" />} title="Who was there">
                 {memory.attendees.join(', ')}
                 {memory.otherAttendees && `, ${memory.otherAttendees}`}
               </Section>
 
               {/* Food */}
-              <Section icon={<Utensils className="w-5 h-5 text-gray-600" />} title="What we ate">
+              <Section icon={<Utensils className="w-5 h-5 text-orange-600" />} title="What we ate">
                 <div className="pl-2">
                   <div><span className="font-semibold">Meal:</span> {memory.meal || (memory as any).food || 'Not specified'}</div>
                   <div><span className="font-semibold">Dessert:</span> {memory.dessert || 'Not specified'}</div>
@@ -209,7 +247,7 @@ export const MemoryDetailsPage: React.FC = () => {
               {recipeChips.length > 0 && (
                 <div className="space-y-6">
                   <div className="flex items-center space-x-2">
-                    <Utensils className="w-5 h-5 text-gray-600" />
+                    <ChefHat className="w-5 h-5 text-pink-600" />
                     <h3 className="font-semibold text-gray-800">Recipes used in this event</h3>
                   </div>
                   <div className="space-y-4">
@@ -251,43 +289,33 @@ export const MemoryDetailsPage: React.FC = () => {
 
               {/* Celebration */}
               {memory.celebration && (
-                <Section icon={<Cake className="w-5 h-5 text-gray-600" />} title="Special celebration">
+                <Section icon={<Cake className="w-5 h-5 text-purple-600" />} title="Special celebration">
                   {memory.celebration}
                 </Section>
               )}
 
-              {/* Notes */}
-              {memory.notes.length > 0 && (
-                <div className="space-y-3">
-                  <div className="flex items-center space-x-2">
-                    <MessageCircle className="w-5 h-5 text-gray-600" />
-                    <h3 className="font-semibold text-gray-800">Memory notes</h3>
-                  </div>
-                  <div className="space-y-3">
-                    {memory.notes.map((note) => (
-                      <div key={note.id} className="text-gray-700 bg-gray-50 rounded-lg p-3">
-                        <span className="italic">
-                          "{note.text}" – {note.authorName}
-                        </span>
-                        <p className="text-xs text-gray-500 mt-1">
-                          {format(new Date(note.timestamp), 'MMM d, h:mm a')}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
+
 
               {/* Media */}
-              {memory.media.length > 0 && (
-                <div className="space-y-3">
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-2">
                     <div className="flex items-center space-x-1">
-                      <Camera className="w-5 h-5 text-gray-600" />
-                      <Video className="w-5 h-5 text-gray-600" />
+                      <Camera className="w-5 h-5 text-indigo-600" />
+                      <Video className="w-5 h-5 text-indigo-600" />
                     </div>
-                    <h3 className="font-semibold text-gray-800">Photos & Videos</h3>
+                    <h3 className="font-semibold text-gray-800">Media</h3>
                   </div>
+                  <Button
+                    onClick={() => setShowMediaUpload(true)}
+                    className="bg-indigo-500 hover:bg-indigo-600 text-white text-sm px-3 py-1"
+                  >
+                    <Plus className="h-3 w-3 mr-1" />
+                    Add Media
+                  </Button>
+                </div>
+                
+                {memory.media.length > 0 ? (
                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
                     {memory.media.map((media) => (
                       <div key={media.id} className="relative group">
@@ -333,30 +361,62 @@ export const MemoryDetailsPage: React.FC = () => {
                       </div>
                     ))}
                   </div>
-                </div>
-              )}
+                ) : (
+                  <div className="text-center py-8 text-gray-500">
+                    <Camera className="w-12 h-12 mx-auto mb-2 text-gray-300" />
+                    <p>No photos or videos yet</p>
+                  </div>
+                )}
+              </div>
 
-              {/* Contribute Button */}
-              <div className="border-t pt-6">
-                <Button
-                  onClick={() => setShowContribution(true)}
-                  className="w-full bg-gradient-to-r from-orange-400 to-pink-400 hover:from-orange-500 hover:to-pink-500 text-white font-medium py-3"
-                >
-                  <Plus className="h-4 w-4 mr-2" />
-                  Contribute to this memory
-                </Button>
+              {/* Comments */}
+              <div className="space-y-3">
+                <div className="flex items-center space-x-2">
+                  <MessageCircle className="w-5 h-5 text-green-600" />
+                  <h3 className="font-semibold text-gray-800">Comments</h3>
+                </div>
+                {commentsLoading ? (
+                  <div className="text-gray-400">Loading comments...</div>
+                ) : (
+                  <div className="space-y-2 mb-2">
+                    {comments.length === 0 ? (
+                      <div className="text-gray-400">No comments yet.</div>
+                    ) : comments.map((c: any) => (
+                      <div key={c.id} className="bg-orange-50 rounded-lg px-4 py-2 text-sm text-gray-800">
+                        <span className="font-semibold text-orange-700 mr-2">{c.authorName}</span>
+                        {c.text}
+                        <span className="text-xs text-gray-400 ml-2">{c.timestamp ? format(new Date(c.timestamp), 'MMM d, yyyy h:mm a') : ''}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {commentError && <div className="text-red-600 text-sm mb-2">{commentError}</div>}
+                <div className="flex gap-2 mt-2">
+                  <input
+                    type="text"
+                    value={comment}
+                    onChange={e => setComment(e.target.value)}
+                    className="flex-1 border border-orange-200 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-100"
+                    placeholder="Add a comment..."
+                  />
+                  <button
+                    onClick={handlePostComment}
+                    className="bg-orange-500 text-white px-4 py-2 rounded font-semibold hover:bg-orange-600 transition"
+                    disabled={!user || !comment.trim()}
+                  >Post</button>
+                </div>
               </div>
             </CardContent>
           </Card>
         </main>
 
-        {showContribution && (
-          <ContributionModal
+        {showMediaUpload && memory && (
+          <MediaUploadModal
+            isOpen={showMediaUpload}
+            onClose={() => setShowMediaUpload(false)}
             memory={memory}
-            onClose={() => setShowContribution(false)}
-            onSubmit={() => {
-              setShowContribution(false);
-              loadMemory(); // Refresh memory to show new contributions
+            onMediaUploaded={() => {
+              loadMemory(); // Refresh memory to show new media
             }}
           />
         )}
