@@ -147,7 +147,7 @@ export const MemoryDetailsPage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 to-pink-50">
-      {/* Header overlay with back button and page title */}
+      {/* Header overlay with back button */}
       <div className="bg-white/90 backdrop-blur-sm border-b border-orange-100 sticky top-0 z-10">
         <div className="max-w-3xl mx-auto px-4 py-4 flex items-center gap-3">
           <button
@@ -158,72 +158,38 @@ export const MemoryDetailsPage: React.FC = () => {
             <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
             Back
           </button>
-          <h1 className="text-lg font-bold text-gray-800 ml-2">{memory.occasion === 'Holiday Meal' ? memory.holiday : memory.occasion}</h1>
         </div>
       </div>
       <div className="max-w-3xl mx-auto bg-white rounded-2xl shadow-lg p-8 mt-8">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-4">
+        {/* Event Summary */}
+        <div className="mb-4">
           <div className="flex items-center gap-3">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-800">{memory.occasion === 'Holiday Meal' ? memory.holiday : memory.occasion}</h1>
-              <div className="text-gray-500 text-sm">Created by {memory.createdByName} on {new Date(memory.createdAt).toLocaleDateString()}</div>
+            <Calendar className="w-6 h-6 text-gray-500" />
+            <div className="text-2xl font-bold text-gray-800 flex flex-col sm:flex-row sm:items-baseline gap-1">
+              <span>
+                {memory.occasion === 'Holiday Meal' && memory.holiday 
+                  ? memory.holiday
+                  : memory.occasion
+                } -
+              </span>
+              <span className="whitespace-nowrap">
+                {new Date(memory.date).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
+              </span>
             </div>
           </div>
-          {/* Only one delete button in the action menu for admin/owner */}
-          {(isAdmin || user?.email === memory.createdBy) && (
-            <div className="relative" ref={actionsMenuRef}>
-              <button
-                className="bg-orange-50 text-orange-600 border border-orange-200 rounded px-4 py-2 font-medium hover:bg-orange-100"
-                onClick={() => setShowActionsMenu((open) => !open)}
-              >
-                More
-              </button>
-              {showActionsMenu && (
-                <div className="absolute right-0 mt-2 w-40 bg-white rounded-lg shadow-lg border border-gray-100 z-50">
-                  <button
-                    onClick={() => {
-                      setShowActionsMenu(false);
-                      handleDeleteMemory();
-                    }}
-                    className="w-full flex items-center gap-2 px-4 py-3 text-red-700 hover:bg-orange-50 hover:text-red-800 transition-colors text-left"
-                  >
-                    Delete Memory
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
         </div>
+        
+
 
         {/* Detail card */}
         <main className="max-w-4xl mx-auto px-4 py-6">
           <Card className="bg-white/90 backdrop-blur-sm shadow-lg border-0">
             <CardHeader className="pb-4">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                <div className="flex items-center space-x-4">
-                  <div className="w-16 h-16 rounded-full bg-gradient-to-br from-orange-100 to-pink-100 flex items-center justify-center">
-                    <Calendar className="w-8 h-8 text-orange-500" />
-                  </div>
-                  <div>
-                    <CardTitle className="text-2xl text-gray-800">
-                      {memory.occasion === 'Holiday Meal' ? memory.holiday : memory.occasion}
-                    </CardTitle>
-                    <CardDescription
-                      className="text-lg text-gray-600 whitespace-nowrap"
-                      title={(() => {
-                        const [year, month, day] = memory.date.split('-');
-                        const d = new Date(Number(year), Number(month) - 1, Number(day));
-                        return format(d, 'EEEE, MMMM d, yyyy');
-                      })()}
-                    >
-                      {(() => {
-                        const [year, month, day] = memory.date.split('-');
-                        const d = new Date(Number(year), Number(month) - 1, Number(day));
-                        return format(d, 'EEEE, MMM d, yyyy');
-                      })()}
-                    </CardDescription>
-                  </div>
+                <div>
+                  <CardTitle className="text-2xl text-gray-800">
+                    Event Details
+                  </CardTitle>
                 </div>
               </div>
             </CardHeader>
@@ -259,7 +225,7 @@ export const MemoryDetailsPage: React.FC = () => {
                         <div key={recipe.id}>
                           <button
                             className="bg-orange-100 text-orange-700 px-3 py-1 rounded-full text-xs font-medium hover:bg-orange-200 transition-colors shadow mb-2"
-                            onClick={() => navigate(`/recipes/${recipe.slug}`)}
+                            onClick={() => navigate(`/recipes/${(recipe as any).slug || recipe.id}`)}
                           >
                             {recipe.title}
                           </button>
@@ -383,7 +349,7 @@ export const MemoryDetailsPage: React.FC = () => {
                       <div className="text-gray-400">No comments yet.</div>
                     ) : comments.map((c: any) => (
                       <div key={c.id} className="bg-orange-50 rounded-lg px-4 py-2 text-sm text-gray-800">
-                        <span className="font-semibold text-orange-700 mr-2">{c.authorName}</span>
+                        <span className="font-semibold text-orange-700 mr-2">{c.authorName}:</span>
                         {c.text}
                         <span className="text-xs text-gray-400 ml-2">{c.timestamp ? format(new Date(c.timestamp), 'MMM d, yyyy h:mm a') : ''}</span>
                       </div>

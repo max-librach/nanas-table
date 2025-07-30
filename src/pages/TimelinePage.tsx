@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { format, parse } from 'date-fns';
-import { Calendar, Users, ChefHat, Star, Camera, Eye, Plus, Heart, Video, ChevronLeft, ChevronRight, Trash2, MoreVertical, Utensils, Cake, MessageCircle } from 'lucide-react';
+import { Calendar, Users, ChefHat, Star, Camera, Eye, Plus, Heart, Video, ChevronLeft, ChevronRight, Utensils, Cake, MessageCircle } from 'lucide-react';
 import { VideoPlayer } from '../components/VideoPlayer';
 import { Memory, Media } from '../types';
-import { DeleteMemoryModal } from '../components/DeleteMemoryModal';
-import { getMemories, deleteMemory as deleteMemoryFromDB, getAllRecipes, getMemoryComments } from '../services/firebaseService';
+
+import { getMemories, getAllRecipes, getMemoryComments } from '../services/firebaseService';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardDescription, CardTitle } from '../components/ui/card';
@@ -18,8 +18,7 @@ export const TimelinePage: React.FC = () => {
   const { user } = useAuth();
   const [memories, setMemories] = useState<Memory[]>([]);
   const [loading, setLoading] = useState(true);
-  const [memoryToDelete, setMemoryToDelete] = useState<Memory | null>(null);
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
+
   const [photoViewerOpen, setPhotoViewerOpen] = useState(false);
   const [photoViewerMemory, setPhotoViewerMemory] = useState<Memory | null>(null);
   const [photoViewerPhoto, setPhotoViewerPhoto] = useState<Media | null>(null);
@@ -80,24 +79,7 @@ export const TimelinePage: React.FC = () => {
     }
   };
 
-  const handleDeleteMemory = (memory: Memory) => {
-    setMemoryToDelete(memory);
-    setShowDeleteModal(true);
-  };
 
-  const confirmDeleteMemory = () => {
-    if (memoryToDelete) {
-      deleteMemoryFromDB(memoryToDelete.id)
-        .then(() => {
-          setMemories(prev => prev.filter(m => m.id !== memoryToDelete.id));
-        })
-        .catch((error) => {
-          console.error('Error deleting memory:', error);
-        });
-      setMemoryToDelete(null);
-      setShowDeleteModal(false);
-    }
-  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 to-pink-50">
@@ -157,7 +139,6 @@ export const TimelinePage: React.FC = () => {
                 recipes={recipes}
                 comments={memoryComments[memory.id] || []}
                 onViewDetails={() => navigate(`/memory/${memory.eventCode}`)}
-                onDelete={isAdmin ? () => handleDeleteMemory(memory) : undefined}
                 isAdmin={isAdmin}
                 onPhotoClick={(photo, mem) => {
                   setPhotoViewerMemory(mem);
@@ -170,16 +151,7 @@ export const TimelinePage: React.FC = () => {
         )}
       </main>
 
-      {showDeleteModal && memoryToDelete && (
-        <DeleteMemoryModal
-          memory={memoryToDelete}
-          onClose={() => {
-            setShowDeleteModal(false);
-            setMemoryToDelete(null);
-          }}
-          onConfirm={confirmDeleteMemory}
-        />
-      )}
+
 
       {photoViewerOpen && photoViewerMemory && photoViewerPhoto && (
         <PhotoViewerModal
@@ -202,12 +174,11 @@ interface GridMemoryCardProps {
   recipes: { id: string; title: string }[];
   comments: any[];
   onViewDetails: () => void;
-  onDelete?: () => void;
   isAdmin?: boolean;
   onPhotoClick?: (photo: Media, memory: Memory) => void;
 }
 
-const GridMemoryCard: React.FC<GridMemoryCardProps> = ({ memory, recipes, comments, onViewDetails, onDelete, isAdmin, onPhotoClick }) => {
+const GridMemoryCard: React.FC<GridMemoryCardProps> = ({ memory, recipes, comments, onViewDetails, isAdmin, onPhotoClick }) => {
   // Find the cover photo or default to first photo
   const coverPhotoIndex = memory.coverPhotoId 
     ? memory.media.findIndex(m => m.id === memory.coverPhotoId)
@@ -215,7 +186,6 @@ const GridMemoryCard: React.FC<GridMemoryCardProps> = ({ memory, recipes, commen
   
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(coverPhotoIndex >= 0 ? coverPhotoIndex : 0);
   const [isHovered, setIsHovered] = useState(false);
-  const [showActionsMenu, setShowActionsMenu] = useState(false);
   const touchStartX = useRef<number | null>(null);
   const touchEndX = useRef<number | null>(null);
 
@@ -414,33 +384,7 @@ const GridMemoryCard: React.FC<GridMemoryCardProps> = ({ memory, recipes, commen
                       </Badge>
                     )}
                     
-                    {onDelete && (
-                  <div className="relative">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="text-gray-400 hover:text-gray-600 p-1 h-6 w-6"
-                      onClick={() => setShowActionsMenu(!showActionsMenu)}
-                    >
-                      <MoreVertical className="w-3 h-3" />
-                    </Button>
-                    
-                    {showActionsMenu && (
-                      <div className="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-10 min-w-[100px]">
-                        <button
-                          onClick={() => {
-                            setShowActionsMenu(false);
-                            onDelete();
-                          }}
-                          className="w-full px-3 py-2 text-left text-red-600 hover:bg-red-50 flex items-center gap-2 rounded-lg text-xs"
-                        >
-                          <Trash2 className="w-3 h-3" />
-                          Delete
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                )}
+    
               </div>
             </div>
 
@@ -531,9 +475,9 @@ const GridMemoryCard: React.FC<GridMemoryCardProps> = ({ memory, recipes, commen
                 <Button
                   size="sm"
                   onClick={onViewDetails}
-                  className="bg-gradient-to-r from-orange-400 to-pink-400 hover:from-orange-500 hover:to-pink-500 text-white text-xs h-8 px-6"
+                  className="bg-gradient-to-r from-orange-400 to-pink-400 hover:from-orange-500 hover:to-pink-500 text-white text-sm sm:text-xs h-10 sm:h-8 px-8 sm:px-6 w-full sm:w-auto"
                 >
-                  <Eye className="w-3 h-3 mr-1" />
+                  <Eye className="w-4 h-4 sm:w-3 sm:h-3 mr-1" />
                   View
                 </Button>
               </div>
