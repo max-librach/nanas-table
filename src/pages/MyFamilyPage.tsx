@@ -14,7 +14,6 @@ interface FamilyMember {
   lastName: string;
   email: string;
   birthdate?: string;
-  photoURL?: string;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -108,7 +107,12 @@ export const MyFamilyPage: React.FC = () => {
 
   const handleAddMember = async (memberData: Omit<FamilyMember, 'id' | 'createdAt' | 'updatedAt'>) => {
     try {
-      const newMemberId = await addFamilyMember(memberData);
+      // Filter out undefined values before sending to Firebase
+      const cleanMemberData = Object.fromEntries(
+        Object.entries(memberData).filter(([_, value]) => value !== undefined)
+      ) as Omit<FamilyMember, 'id' | 'createdAt' | 'updatedAt'>;
+      
+      const newMemberId = await addFamilyMember(cleanMemberData);
       
       // Reload family members from Firebase
       const updatedMembers = await getFamilyMembers();
@@ -130,7 +134,12 @@ export const MyFamilyPage: React.FC = () => {
     if (!editingMember) return;
 
     try {
-      await updateFamilyMember(editingMember.id, memberData);
+      // Filter out undefined values before sending to Firebase
+      const cleanMemberData = Object.fromEntries(
+        Object.entries(memberData).filter(([_, value]) => value !== undefined)
+      ) as Partial<Omit<FamilyMember, 'id' | 'createdAt' | 'updatedAt'>>;
+      
+      await updateFamilyMember(editingMember.id, cleanMemberData);
       
       // Reload family members from Firebase
       const updatedMembers = await getFamilyMembers();
