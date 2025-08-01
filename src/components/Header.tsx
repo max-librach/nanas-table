@@ -64,6 +64,12 @@ export const Header: React.FC = () => {
             >
               <span className="text-lg">🍴</span> Recipes
             </Link>
+            <Link
+              to="/family"
+              className={`flex items-center gap-1 text-gray-700 hover:text-orange-600 font-medium transition ${location.pathname === '/family' ? 'text-orange-600' : ''}`}
+            >
+              <span className="text-lg">👨‍👩‍👧‍👦</span> My Family
+            </Link>
           </nav>
         </div>
         {/* Desktop avatar */}
@@ -114,6 +120,13 @@ export const Header: React.FC = () => {
                 onClick={() => setMobileNavOpen(false)}
               >
                 <span className="text-lg">🍴</span> Recipes
+              </Link>
+              <Link
+                to="/family"
+                className={`flex items-center gap-2 px-4 py-3 text-gray-700 hover:bg-orange-50 hover:text-orange-600 font-medium transition ${location.pathname === '/family' ? 'text-orange-600' : ''}`}
+                onClick={() => setMobileNavOpen(false)}
+              >
+                <span className="text-lg">👨‍👩‍👧‍👦</span> My Family
               </Link>
               <div className="border-t border-orange-100 my-2" />
               <button

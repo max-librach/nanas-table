@@ -5,6 +5,18 @@ export interface User {
   photoURL?: string;
 }
 
+export interface FamilyMember {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  birthdate?: string;
+  photoURL?: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface Memory {
   id: string;
   date: string;

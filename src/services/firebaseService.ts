@@ -22,7 +22,7 @@ import {
 } from 'firebase/storage';
 import { db, storage } from '../firebase/config';
 import { auth } from '../firebase/config';
-import { Memory, Note, Media, Recipe } from '../types';
+import { Memory, Note, Media, Recipe, FamilyMember } from '../types';
 
 // Memory operations
 export const createMemory = async (memoryData: Omit<Memory, 'id' | 'createdAt' | 'notes' | 'media'>) => {
@@ -810,6 +810,87 @@ export const runMigration = async () => {
     return migratedCount;
   } catch (error) {
     console.error('Migration failed:', error);
+    throw error;
+  }
+};
+
+// Family Members
+export const getFamilyMembers = async (): Promise<FamilyMember[]> => {
+  try {
+    console.log('Fetching family members from Firebase...');
+    const familyMembersRef = collection(db, 'familyMembers');
+    // Simplified query to avoid index requirements - we'll filter and sort in JavaScript
+    const q = query(familyMembersRef);
+    const querySnapshot = await getDocs(q);
+    
+    console.log('Found', querySnapshot.docs.length, 'family member documents');
+    
+    const familyMembers = querySnapshot.docs
+      .map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }))
+      .filter((member: any) => member.isActive) // Filter active members
+      .sort((a: any, b: any) => {
+        // Sort by lastName first, then firstName
+        const lastNameCompare = a.lastName.localeCompare(b.lastName);
+        if (lastNameCompare !== 0) return lastNameCompare;
+        return a.firstName.localeCompare(b.firstName);
+      }) as FamilyMember[]; // Sort by name
+    
+    console.log('Family members loaded:', familyMembers);
+    return familyMembers;
+  } catch (error) {
+    console.error('Error fetching family members:', error);
+    
+    // If the collection doesn't exist yet, return empty array instead of throwing
+    if (error instanceof Error && error.message.includes('collection')) {
+      console.log('Family members collection does not exist yet, returning empty array');
+      return [];
+    }
+    
+    throw error;
+  }
+};
+
+export const addFamilyMember = async (familyMember: Omit<FamilyMember, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> => {
+  try {
+    const familyMembersRef = collection(db, 'familyMembers');
+    const now = new Date().toISOString();
+    const docRef = await addDoc(familyMembersRef, {
+      ...familyMember,
+      createdAt: now,
+      updatedAt: now
+    });
+    return docRef.id;
+  } catch (error) {
+    console.error('Error adding family member:', error);
+    throw error;
+  }
+};
+
+export const updateFamilyMember = async (id: string, updates: Partial<FamilyMember>): Promise<void> => {
+  try {
+    const familyMemberRef = doc(db, 'familyMembers', id);
+    await updateDoc(familyMemberRef, {
+      ...updates,
+      updatedAt: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('Error updating family member:', error);
+    throw error;
+  }
+};
+
+export const deleteFamilyMember = async (id: string): Promise<void> => {
+  try {
+    const familyMemberRef = doc(db, 'familyMembers', id);
+    await updateDoc(familyMemberRef, {
+      isActive: false,
+      updatedAt: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('Error deleting family member:', error);
     throw error;
   }
 };

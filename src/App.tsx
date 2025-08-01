@@ -10,6 +10,7 @@ import { PrivacyPolicyPage } from './pages/PrivacyPolicyPage';
 import { RecipesPage } from './pages/RecipesPage';
 import { AddEditRecipeForm } from './pages/AddEditRecipeForm';
 import { RecipeDetailPage } from './pages/RecipeDetailPage';
+import { MyFamilyPage } from './pages/MyFamilyPage';
 import { Header } from './components/Header';
 import ScrollToTop from './ScrollToTop';
 
@@ -75,6 +76,13 @@ function App() {
           <Route path="/recipes/new" element={<Layout><AddEditRecipeForm /></Layout>} />
           <Route path="/recipes/:slug" element={<Layout><RecipeDetailPage /></Layout>} />
           <Route path="/recipes/:slug/edit" element={<Layout><AddEditRecipeForm /></Layout>} />
+          <Route path="/family" element={
+            <Layout>
+              <PrivateRoute>
+                <MyFamilyPage />
+              </PrivateRoute>
+            </Layout>
+          } />
         </Routes>
       </Router>
     </AuthProvider>
