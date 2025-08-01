@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../co
 import { Toast } from '../components/Toast';
 import { AddFamilyMemberModal } from '../components/AddFamilyMemberModal';
 import { useAuth } from '../contexts/AuthContext';
+import { getFamilyMembers, addFamilyMember, updateFamilyMember } from '../services/firebaseService';
 import { FAMILY_MEMBERS_LIST } from '../constants';
 
 interface FamilyMember {
@@ -27,25 +28,61 @@ export const MyFamilyPage: React.FC = () => {
   const [editingMember, setEditingMember] = useState<FamilyMember | null>(null);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
-  // For now, we'll use the hardcoded data from constants
+  // Load family members from Firebase
   useEffect(() => {
-    // Convert FAMILY_MEMBERS_LIST to FamilyMember format, excluding "Other"
-    const members: FamilyMember[] = FAMILY_MEMBERS_LIST
-      .filter(member => member.name !== 'Other')
-      .map((member, index) => ({
-        id: `member-${index}`,
-        firstName: member.name.split(' ')[0] || member.name,
-        lastName: member.name.split(' ').slice(1).join(' ') || '',
-        email: '', // We don't have emails in FAMILY_MEMBERS_LIST yet
-        birthdate: undefined,
-        photoURL: undefined,
-        isActive: true,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      }));
+    const loadFamilyMembers = async () => {
+      try {
+        setLoading(true);
+        const members = await getFamilyMembers();
+        
+        // If no members in Firebase, initialize with hardcoded data
+        if (members.length === 0) {
+          console.log('No family members in Firebase, initializing with hardcoded data...');
+          const initialMembers: FamilyMember[] = FAMILY_MEMBERS_LIST
+            .filter(member => member.name !== 'Other')
+            .map((member, index) => ({
+              id: `member-${index}`,
+              firstName: member.name.split(' ')[0] || member.name,
+              lastName: member.name.split(' ').slice(1).join(' ') || '',
+              email: '', // We don't have emails in FAMILY_MEMBERS_LIST yet
+              birthdate: undefined,
+              photoURL: undefined,
+              isActive: true,
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString()
+            }));
+          
+          // Add initial members to Firebase
+          for (const member of initialMembers) {
+            try {
+              await addFamilyMember({
+                firstName: member.firstName,
+                lastName: member.lastName,
+                email: member.email,
+                birthdate: member.birthdate,
+                photoURL: member.photoURL,
+                isActive: member.isActive
+              });
+            } catch (error) {
+              console.error('Error adding initial family member:', error);
+            }
+          }
+          
+          // Reload from Firebase
+          const reloadedMembers = await getFamilyMembers();
+          setFamilyMembers(reloadedMembers);
+        } else {
+          setFamilyMembers(members);
+        }
+      } catch (error) {
+        console.error('Error loading family members:', error);
+        setToast({ message: 'Failed to load family members', type: 'error' });
+      } finally {
+        setLoading(false);
+      }
+    };
 
-    setFamilyMembers(members);
-    setLoading(false);
+    loadFamilyMembers();
   }, []);
 
   const formatDate = (dateString: string) => {
@@ -71,18 +108,16 @@ export const MyFamilyPage: React.FC = () => {
 
   const handleAddMember = async (memberData: Omit<FamilyMember, 'id' | 'createdAt' | 'updatedAt'>) => {
     try {
-      // For now, just add to local state
-      const newMember: FamilyMember = {
-        ...memberData,
-        id: `member-${Date.now()}`,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      };
-
-      setFamilyMembers(prev => [...prev, newMember]);
+      const newMemberId = await addFamilyMember(memberData);
+      
+      // Reload family members from Firebase
+      const updatedMembers = await getFamilyMembers();
+      setFamilyMembers(updatedMembers);
+      
       setShowAddModal(false);
       setToast({ message: 'Family member added successfully!', type: 'success' });
     } catch (error) {
+      console.error('Error adding family member:', error);
       setToast({ message: 'Failed to add family member', type: 'error' });
     }
   };
@@ -95,21 +130,16 @@ export const MyFamilyPage: React.FC = () => {
     if (!editingMember) return;
 
     try {
-      const updatedMember: FamilyMember = {
-        ...memberData,
-        id: editingMember.id,
-        createdAt: editingMember.createdAt,
-        updatedAt: new Date().toISOString()
-      };
-
-      setFamilyMembers(prev => 
-        prev.map(member => 
-          member.id === editingMember.id ? updatedMember : member
-        )
-      );
+      await updateFamilyMember(editingMember.id, memberData);
+      
+      // Reload family members from Firebase
+      const updatedMembers = await getFamilyMembers();
+      setFamilyMembers(updatedMembers);
+      
       setEditingMember(null);
       setToast({ message: 'Family member updated successfully!', type: 'success' });
     } catch (error) {
+      console.error('Error updating family member:', error);
       setToast({ message: 'Failed to update family member', type: 'error' });
     }
   };
