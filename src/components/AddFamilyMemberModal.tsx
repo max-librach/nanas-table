@@ -1,151 +1,190 @@
 import React, { useState } from 'react';
-import { addFamilyMember } from '../services/firebaseService';
-import { X } from 'lucide-react';
+import { X, User, Mail, Calendar, Crown } from 'lucide-react';
+import { Button } from './ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
+import { Input } from './ui/input';
+import { Label } from './ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 
-interface AddFamilyMemberModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  onSuccess: () => void;
+interface FamilyMember {
+  id: string;
+  name: string;
+  email: string;
+  birthdate?: string;
+  photoURL?: string;
+  role?: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
 }
 
-export const AddFamilyMemberModal: React.FC<AddFamilyMemberModalProps> = ({
-  isOpen,
-  onClose,
-  onSuccess
-}) => {
+interface AddFamilyMemberModalProps {
+  onClose: () => void;
+  onAdd: (memberData: Omit<FamilyMember, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>;
+}
+
+export const AddFamilyMemberModal: React.FC<AddFamilyMemberModalProps> = ({ onClose, onAdd }) => {
   const [formData, setFormData] = useState({
-    firstName: '',
-    lastName: '',
+    name: '',
     email: '',
-    birthdate: ''
+    birthdate: '',
+    role: ''
   });
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setError(null);
-
-          try {
-        await addFamilyMember({
-          firstName: formData.firstName.trim(),
-          lastName: formData.lastName.trim(),
-          email: formData.email.trim().toLowerCase(),
-          birthdate: formData.birthdate || undefined,
-          isActive: true
-        });
-
-      setFormData({ firstName: '', lastName: '', email: '', birthdate: '' });
-      onSuccess();
-      onClose();
-    } catch (err) {
-      console.error('Error adding family member:', err);
-      setError('Failed to add family member. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
-  if (!isOpen) return null;
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!formData.name.trim()) {
+      return;
+    }
+
+    setIsSubmitting(true);
+    
+    try {
+      await onAdd({
+        name: formData.name.trim(),
+        email: formData.email.trim(),
+        birthdate: formData.birthdate || undefined,
+        photoURL: undefined,
+        role: formData.role || undefined,
+        isActive: true
+      });
+    } catch (error) {
+      console.error('Error adding family member:', error);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between p-6 border-b border-gray-200">
-          <h2 className="text-xl font-semibold text-gray-800">Add Family Member</h2>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          {error && (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-              <p className="text-red-600 text-sm">{error}</p>
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+      <Card className="w-full max-w-md shadow-xl border-0 bg-white/95 backdrop-blur-sm">
+        <CardHeader className="pb-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="text-xl text-gray-800">Add Family Member</CardTitle>
+              <CardDescription className="text-gray-600">
+                Add a new member to your family
+              </CardDescription>
             </div>
-          )}
-
-          <div>
-            <label htmlFor="firstName" className="block text-sm font-medium text-gray-700 mb-1">
-              First Name *
-            </label>
-            <input
-              type="text"
-              id="firstName"
-              value={formData.firstName}
-              onChange={(e) => handleInputChange('firstName', e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-              required
-            />
-          </div>
-
-          <div>
-            <label htmlFor="lastName" className="block text-sm font-medium text-gray-700 mb-1">
-              Last Name *
-            </label>
-            <input
-              type="text"
-              id="lastName"
-              value={formData.lastName}
-              onChange={(e) => handleInputChange('lastName', e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-              required
-            />
-          </div>
-
-          <div>
-            <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
-              Email *
-            </label>
-            <input
-              type="email"
-              id="email"
-              value={formData.email}
-              onChange={(e) => handleInputChange('email', e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-              required
-            />
-          </div>
-
-          <div>
-            <label htmlFor="birthdate" className="block text-sm font-medium text-gray-700 mb-1">
-              Birthdate
-            </label>
-            <input
-              type="date"
-              id="birthdate"
-              value={formData.birthdate}
-              onChange={(e) => handleInputChange('birthdate', e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-            />
-          </div>
-
-          <div className="flex gap-3 pt-4">
-            <button
-              type="button"
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={onClose}
-              className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+              className="text-gray-400 hover:text-gray-600"
             >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={loading || !formData.firstName || !formData.lastName || !formData.email}
-              className="flex-1 px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              {loading ? 'Adding...' : 'Add Member'}
-            </button>
+              <X className="w-4 h-4" />
+            </Button>
           </div>
-        </form>
-      </div>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="name" className="text-gray-700">
+                Name <span className="text-red-500">*</span>
+              </Label>
+              <div className="relative">
+                <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <Input
+                  id="name"
+                  type="text"
+                  placeholder="Enter full name"
+                  value={formData.name}
+                  onChange={(e) => handleInputChange('name', e.target.value)}
+                  className="pl-10 border-gray-200 focus:border-orange-300 focus:ring-orange-200"
+                  required
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="email" className="text-gray-700">
+                Email
+              </Label>
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="Enter email address"
+                  value={formData.email}
+                  onChange={(e) => handleInputChange('email', e.target.value)}
+                  className="pl-10 border-gray-200 focus:border-orange-300 focus:ring-orange-200"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="birthdate" className="text-gray-700">
+                Birthdate
+              </Label>
+              <div className="relative">
+                <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <Input
+                  id="birthdate"
+                  type="date"
+                  value={formData.birthdate}
+                  onChange={(e) => handleInputChange('birthdate', e.target.value)}
+                  className="pl-10 border-gray-200 focus:border-orange-300 focus:ring-orange-200"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="role" className="text-gray-700">
+                Role
+              </Label>
+              <div className="relative">
+                <Crown className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <Select value={formData.role} onValueChange={(value) => handleInputChange('role', value)}>
+                  <SelectTrigger className="pl-10 border-gray-200 focus:border-orange-300 focus:ring-orange-200">
+                    <SelectValue placeholder="Select a role (optional)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Parent">Parent</SelectItem>
+                    <SelectItem value="Child">Child</SelectItem>
+                    <SelectItem value="Grandparent">Grandparent</SelectItem>
+                    <SelectItem value="Sibling">Sibling</SelectItem>
+                    <SelectItem value="Spouse">Spouse</SelectItem>
+                    <SelectItem value="Other">Other</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="flex space-x-3 pt-4">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={onClose}
+                className="flex-1 border-gray-200 text-gray-700 hover:bg-gray-50"
+                disabled={isSubmitting}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                disabled={isSubmitting || !formData.name.trim()}
+                className="flex-1 bg-gradient-to-r from-orange-400 to-pink-400 hover:from-orange-500 hover:to-pink-500 text-white disabled:opacity-50"
+              >
+                {isSubmitting ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                    Adding...
+                  </>
+                ) : (
+                  'Add Member'
+                )}
+              </Button>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
     </div>
   );
 }; 
