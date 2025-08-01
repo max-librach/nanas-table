@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, User, Mail, Calendar, Crown } from 'lucide-react';
+import { Plus, User, Mail, Calendar, Edit } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
-import { Badge } from '../components/ui/badge';
 import { Toast } from '../components/Toast';
 import { AddFamilyMemberModal } from '../components/AddFamilyMemberModal';
 import { useAuth } from '../contexts/AuthContext';
@@ -10,11 +9,11 @@ import { FAMILY_MEMBERS_LIST } from '../constants';
 
 interface FamilyMember {
   id: string;
-  name: string;
+  firstName: string;
+  lastName: string;
   email: string;
   birthdate?: string;
   photoURL?: string;
-  role?: string;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -25,22 +24,25 @@ export const MyFamilyPage: React.FC = () => {
   const [familyMembers, setFamilyMembers] = useState<FamilyMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [editingMember, setEditingMember] = useState<FamilyMember | null>(null);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
   // For now, we'll use the hardcoded data from constants
   useEffect(() => {
-    // Convert FAMILY_MEMBERS_LIST to FamilyMember format
-    const members: FamilyMember[] = FAMILY_MEMBERS_LIST.map((member, index) => ({
-      id: `member-${index}`,
-      name: member.name,
-      email: '', // We don't have emails in FAMILY_MEMBERS_LIST yet
-      birthdate: undefined,
-      photoURL: undefined,
-      role: undefined,
-      isActive: true,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    }));
+    // Convert FAMILY_MEMBERS_LIST to FamilyMember format, excluding "Other"
+    const members: FamilyMember[] = FAMILY_MEMBERS_LIST
+      .filter(member => member.name !== 'Other')
+      .map((member, index) => ({
+        id: `member-${index}`,
+        firstName: member.name.split(' ')[0] || member.name,
+        lastName: member.name.split(' ').slice(1).join(' ') || '',
+        email: '', // We don't have emails in FAMILY_MEMBERS_LIST yet
+        birthdate: undefined,
+        photoURL: undefined,
+        isActive: true,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      }));
 
     setFamilyMembers(members);
     setLoading(false);
@@ -55,13 +57,14 @@ export const MyFamilyPage: React.FC = () => {
     });
   };
 
-  const getInitials = (name: string) => {
-    return name
-      .split(' ')
-      .map(word => word.charAt(0))
-      .join('')
-      .toUpperCase()
-      .slice(0, 2);
+  const getInitials = (firstName: string, lastName: string) => {
+    const first = firstName.charAt(0).toUpperCase();
+    const last = lastName.charAt(0).toUpperCase();
+    return `${first}${last}`;
+  };
+
+  const getFullName = (firstName: string, lastName: string) => {
+    return `${firstName} ${lastName}`.trim();
   };
 
   const handleAddMember = async (memberData: Omit<FamilyMember, 'id' | 'createdAt' | 'updatedAt'>) => {
@@ -79,6 +82,33 @@ export const MyFamilyPage: React.FC = () => {
       setToast({ message: 'Family member added successfully!', type: 'success' });
     } catch (error) {
       setToast({ message: 'Failed to add family member', type: 'error' });
+    }
+  };
+
+  const handleEditMember = (member: FamilyMember) => {
+    setEditingMember(member);
+  };
+
+  const handleUpdateMember = async (memberData: Omit<FamilyMember, 'id' | 'createdAt' | 'updatedAt'>) => {
+    if (!editingMember) return;
+
+    try {
+      const updatedMember: FamilyMember = {
+        ...memberData,
+        id: editingMember.id,
+        createdAt: editingMember.createdAt,
+        updatedAt: new Date().toISOString()
+      };
+
+      setFamilyMembers(prev => 
+        prev.map(member => 
+          member.id === editingMember.id ? updatedMember : member
+        )
+      );
+      setEditingMember(null);
+      setToast({ message: 'Family member updated successfully!', type: 'success' });
+    } catch (error) {
+      setToast({ message: 'Failed to update family member', type: 'error' });
     }
   };
 
@@ -118,7 +148,11 @@ export const MyFamilyPage: React.FC = () => {
       <div className="max-w-4xl mx-auto px-4 py-6">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {familyMembers.map((member) => (
-            <Card key={member.id} className="shadow-lg border-0 bg-white/90 backdrop-blur-sm">
+            <Card 
+              key={member.id} 
+              className="shadow-lg border-0 bg-white/90 backdrop-blur-sm hover:shadow-xl transition-shadow cursor-pointer"
+              onClick={() => handleEditMember(member)}
+            >
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-3">
@@ -126,28 +160,22 @@ export const MyFamilyPage: React.FC = () => {
                       {member.photoURL ? (
                         <img 
                           src={member.photoURL} 
-                          alt={member.name}
+                          alt={getFullName(member.firstName, member.lastName)}
                           className="w-12 h-12 rounded-full object-cover"
                         />
                       ) : (
                         <span className="text-lg font-semibold text-orange-600">
-                          {getInitials(member.name)}
+                          {getInitials(member.firstName, member.lastName)}
                         </span>
                       )}
                     </div>
                     <div>
-                      <CardTitle className="text-lg text-gray-800">{member.name}</CardTitle>
-                      {member.role && (
-                        <div className="flex items-center space-x-1 mt-1">
-                          <Crown className="w-3 h-3 text-amber-500" />
-                          <span className="text-xs text-gray-500">{member.role}</span>
-                        </div>
-                      )}
+                      <CardTitle className="text-lg text-gray-800">
+                        {getFullName(member.firstName, member.lastName)}
+                      </CardTitle>
                     </div>
                   </div>
-                  <Badge variant={member.isActive ? "default" : "secondary"}>
-                    {member.isActive ? 'Active' : 'Inactive'}
-                  </Badge>
+                  <Edit className="w-4 h-4 text-gray-400" />
                 </div>
               </CardHeader>
               <CardContent className="space-y-3">
@@ -157,16 +185,17 @@ export const MyFamilyPage: React.FC = () => {
                     <span>{member.email}</span>
                   </div>
                 )}
-                {member.birthdate && (
+                {member.birthdate ? (
                   <div className="flex items-center space-x-2 text-sm text-gray-600">
                     <Calendar className="w-4 h-4" />
                     <span>{formatDate(member.birthdate)}</span>
                   </div>
+                ) : (
+                  <div className="flex items-center space-x-2 text-sm text-gray-400">
+                    <Calendar className="w-4 h-4" />
+                    <span>No birthday set</span>
+                  </div>
                 )}
-                <div className="flex items-center space-x-2 text-xs text-gray-500">
-                  <User className="w-3 h-3" />
-                  <span>Member since {formatDate(member.createdAt)}</span>
-                </div>
               </CardContent>
             </Card>
           ))}
@@ -197,6 +226,15 @@ export const MyFamilyPage: React.FC = () => {
         <AddFamilyMemberModal
           onClose={() => setShowAddModal(false)}
           onAdd={handleAddMember}
+        />
+      )}
+
+      {/* Edit Family Member Modal */}
+      {editingMember && (
+        <AddFamilyMemberModal
+          onClose={() => setEditingMember(null)}
+          onAdd={handleUpdateMember}
+          editingMember={editingMember}
         />
       )}
 

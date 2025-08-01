@@ -1,18 +1,17 @@
-import React, { useState } from 'react';
-import { X, User, Mail, Calendar, Crown } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { X, User, Mail, Calendar } from 'lucide-react';
 import { Button } from './ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 
 interface FamilyMember {
   id: string;
-  name: string;
+  firstName: string;
+  lastName: string;
   email: string;
   birthdate?: string;
   photoURL?: string;
-  role?: string;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -21,16 +20,40 @@ interface FamilyMember {
 interface AddFamilyMemberModalProps {
   onClose: () => void;
   onAdd: (memberData: Omit<FamilyMember, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>;
+  editingMember?: FamilyMember | null;
 }
 
-export const AddFamilyMemberModal: React.FC<AddFamilyMemberModalProps> = ({ onClose, onAdd }) => {
+export const AddFamilyMemberModal: React.FC<AddFamilyMemberModalProps> = ({ 
+  onClose, 
+  onAdd, 
+  editingMember 
+}) => {
   const [formData, setFormData] = useState({
-    name: '',
+    firstName: '',
+    lastName: '',
     email: '',
-    birthdate: '',
-    role: ''
+    birthdate: ''
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Pre-populate form when editing
+  useEffect(() => {
+    if (editingMember) {
+      setFormData({
+        firstName: editingMember.firstName,
+        lastName: editingMember.lastName,
+        email: editingMember.email,
+        birthdate: editingMember.birthdate || ''
+      });
+    } else {
+      setFormData({
+        firstName: '',
+        lastName: '',
+        email: '',
+        birthdate: ''
+      });
+    }
+  }, [editingMember]);
 
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -39,7 +62,7 @@ export const AddFamilyMemberModal: React.FC<AddFamilyMemberModalProps> = ({ onCl
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.name.trim()) {
+    if (!formData.firstName.trim() || !formData.lastName.trim()) {
       return;
     }
 
@@ -47,11 +70,11 @@ export const AddFamilyMemberModal: React.FC<AddFamilyMemberModalProps> = ({ onCl
     
     try {
       await onAdd({
-        name: formData.name.trim(),
+        firstName: formData.firstName.trim(),
+        lastName: formData.lastName.trim(),
         email: formData.email.trim(),
         birthdate: formData.birthdate || undefined,
         photoURL: undefined,
-        role: formData.role || undefined,
         isActive: true
       });
     } catch (error) {
@@ -61,15 +84,19 @@ export const AddFamilyMemberModal: React.FC<AddFamilyMemberModalProps> = ({ onCl
     }
   };
 
+  const isEditing = !!editingMember;
+
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
       <Card className="w-full max-w-md shadow-xl border-0 bg-white/95 backdrop-blur-sm">
         <CardHeader className="pb-4">
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle className="text-xl text-gray-800">Add Family Member</CardTitle>
+              <CardTitle className="text-xl text-gray-800">
+                {isEditing ? 'Edit Family Member' : 'Add Family Member'}
+              </CardTitle>
               <CardDescription className="text-gray-600">
-                Add a new member to your family
+                {isEditing ? 'Update family member information' : 'Add a new member to your family'}
               </CardDescription>
             </div>
             <Button
@@ -84,19 +111,35 @@ export const AddFamilyMemberModal: React.FC<AddFamilyMemberModalProps> = ({ onCl
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="name" className="text-gray-700">
-                Name <span className="text-red-500">*</span>
-              </Label>
-              <div className="relative">
-                <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label htmlFor="firstName" className="text-gray-700">
+                  First Name <span className="text-red-500">*</span>
+                </Label>
+                <div className="relative">
+                  <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <Input
+                    id="firstName"
+                    type="text"
+                    placeholder="First name"
+                    value={formData.firstName}
+                    onChange={(e) => handleInputChange('firstName', e.target.value)}
+                    className="pl-10 border-gray-200 focus:border-orange-300 focus:ring-orange-200"
+                    required
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="lastName" className="text-gray-700">
+                  Last Name <span className="text-red-500">*</span>
+                </Label>
                 <Input
-                  id="name"
+                  id="lastName"
                   type="text"
-                  placeholder="Enter full name"
-                  value={formData.name}
-                  onChange={(e) => handleInputChange('name', e.target.value)}
-                  className="pl-10 border-gray-200 focus:border-orange-300 focus:ring-orange-200"
+                  placeholder="Last name"
+                  value={formData.lastName}
+                  onChange={(e) => handleInputChange('lastName', e.target.value)}
+                  className="border-gray-200 focus:border-orange-300 focus:ring-orange-200"
                   required
                 />
               </div>
@@ -135,28 +178,6 @@ export const AddFamilyMemberModal: React.FC<AddFamilyMemberModalProps> = ({ onCl
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="role" className="text-gray-700">
-                Role
-              </Label>
-              <div className="relative">
-                <Crown className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                <Select value={formData.role} onValueChange={(value) => handleInputChange('role', value)}>
-                  <SelectTrigger className="pl-10 border-gray-200 focus:border-orange-300 focus:ring-orange-200">
-                    <SelectValue placeholder="Select a role (optional)" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Parent">Parent</SelectItem>
-                    <SelectItem value="Child">Child</SelectItem>
-                    <SelectItem value="Grandparent">Grandparent</SelectItem>
-                    <SelectItem value="Sibling">Sibling</SelectItem>
-                    <SelectItem value="Spouse">Spouse</SelectItem>
-                    <SelectItem value="Other">Other</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
             <div className="flex space-x-3 pt-4">
               <Button
                 type="button"
@@ -169,16 +190,16 @@ export const AddFamilyMemberModal: React.FC<AddFamilyMemberModalProps> = ({ onCl
               </Button>
               <Button
                 type="submit"
-                disabled={isSubmitting || !formData.name.trim()}
+                disabled={isSubmitting || !formData.firstName.trim() || !formData.lastName.trim()}
                 className="flex-1 bg-gradient-to-r from-orange-400 to-pink-400 hover:from-orange-500 hover:to-pink-500 text-white disabled:opacity-50"
               >
                 {isSubmitting ? (
                   <>
                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                    Adding...
+                    {isEditing ? 'Updating...' : 'Adding...'}
                   </>
                 ) : (
-                  'Add Member'
+                  isEditing ? 'Update Member' : 'Add Member'
                 )}
               </Button>
             </div>
