@@ -45,7 +45,6 @@ export const MyFamilyPage: React.FC = () => {
               lastName: member.name.split(' ').slice(1).join(' ') || '',
               email: '', // We don't have emails in FAMILY_MEMBERS_LIST yet
               birthdate: undefined,
-              photoURL: undefined,
               isActive: true,
               createdAt: new Date().toISOString(),
               updatedAt: new Date().toISOString()
@@ -59,7 +58,6 @@ export const MyFamilyPage: React.FC = () => {
                 lastName: member.lastName,
                 email: member.email,
                 birthdate: member.birthdate,
-                photoURL: member.photoURL,
                 isActive: member.isActive
               });
             } catch (error) {
@@ -198,17 +196,9 @@ export const MyFamilyPage: React.FC = () => {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-3">
                     <div className="w-12 h-12 rounded-full bg-gradient-to-br from-orange-100 to-pink-100 flex items-center justify-center">
-                      {member.photoURL ? (
-                        <img 
-                          src={member.photoURL} 
-                          alt={getFullName(member.firstName, member.lastName)}
-                          className="w-12 h-12 rounded-full object-cover"
-                        />
-                      ) : (
-                        <span className="text-lg font-semibold text-orange-600">
-                          {getInitials(member.firstName, member.lastName)}
-                        </span>
-                      )}
+                      <span className="text-lg font-semibold text-orange-600">
+                        {getInitials(member.firstName, member.lastName)}
+                      </span>
                     </div>
                     <div>
                       <CardTitle className="text-lg text-gray-800">

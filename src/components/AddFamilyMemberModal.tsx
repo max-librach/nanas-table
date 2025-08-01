@@ -11,7 +11,6 @@ interface FamilyMember {
   lastName: string;
   email: string;
   birthdate?: string;
-  photoURL?: string;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -74,7 +73,6 @@ export const AddFamilyMemberModal: React.FC<AddFamilyMemberModalProps> = ({
         lastName: formData.lastName.trim(),
         email: formData.email.trim(),
         birthdate: formData.birthdate || undefined, // Store as YYYY-MM-DD string
-        photoURL: undefined,
         isActive: true
       });
     } catch (error) {
