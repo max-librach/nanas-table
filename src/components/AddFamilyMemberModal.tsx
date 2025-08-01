@@ -73,7 +73,7 @@ export const AddFamilyMemberModal: React.FC<AddFamilyMemberModalProps> = ({
         firstName: formData.firstName.trim(),
         lastName: formData.lastName.trim(),
         email: formData.email.trim(),
-        birthdate: formData.birthdate || undefined,
+        birthdate: formData.birthdate || undefined, // Store as YYYY-MM-DD string
         photoURL: undefined,
         isActive: true
       });
