@@ -723,12 +723,29 @@ export const addRecipeComment = async (recipeId: string, authorId: string, autho
 
 export const getRecipeComments = async (recipeId: string) => {
   try {
-    const commentsQuery = query(collection(db, 'recipeComments'), where('recipeId', '==', recipeId), orderBy('timestamp'));
-    const querySnapshot = await getDocs(commentsQuery);
-    return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    // Try with orderBy first (requires composite index)
+    let commentsQuery = query(collection(db, 'recipeComments'), where('recipeId', '==', recipeId), orderBy('timestamp'));
+    let querySnapshot = await getDocs(commentsQuery);
+    const comments = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    // Sort by timestamp manually if we got the data
+    return comments.sort((a: any, b: any) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
   } catch (error) {
-    console.error('Error fetching recipe comments:', error);
-    return [];
+    console.warn('Error fetching recipe comments with orderBy (missing index?), trying without orderBy:', error);
+    try {
+      // Fallback: query without orderBy and sort manually
+      const simpleQuery = query(collection(db, 'recipeComments'), where('recipeId', '==', recipeId));
+      const querySnapshot = await getDocs(simpleQuery);
+      const comments = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      // Sort by timestamp manually
+      return comments.sort((a: any, b: any) => {
+        const aTime = a.timestamp ? new Date(a.timestamp).getTime() : 0;
+        const bTime = b.timestamp ? new Date(b.timestamp).getTime() : 0;
+        return aTime - bTime;
+      });
+    } catch (fallbackError) {
+      console.error('Error fetching recipe comments (fallback):', fallbackError);
+      return [];
+    }
   }
 };
 

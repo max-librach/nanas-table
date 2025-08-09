@@ -163,19 +163,31 @@ export const MemoryDetailsPage: React.FC = () => {
       <div className="max-w-3xl mx-auto bg-white rounded-2xl shadow-lg p-8 mt-8">
         {/* Event Summary */}
         <div className="mb-4">
-          <div className="flex items-center gap-3">
-            <Calendar className="w-6 h-6 text-gray-500" />
-            <div className="text-2xl font-bold text-gray-800 flex flex-col sm:flex-row sm:items-baseline gap-1">
-              <span>
-                {memory.occasion === 'Holiday Meal' && memory.holiday 
-                  ? memory.holiday
-                  : memory.occasion
-                } -
-              </span>
-              <span className="whitespace-nowrap">
-                {new Date(memory.date).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
-              </span>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Calendar className="w-6 h-6 text-gray-500" />
+              <div className="text-2xl font-bold text-gray-800 flex flex-col sm:flex-row sm:items-baseline gap-1">
+                <span>
+                  {memory.occasion === 'Holiday Meal' && memory.holiday 
+                    ? memory.holiday
+                    : memory.occasion
+                  } -
+                </span>
+                <span className="whitespace-nowrap">
+                  {new Date(memory.date).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
+                </span>
+              </div>
             </div>
+            {/* Edit button - allow any authenticated user to edit */}
+            {user && (
+              <Button
+                onClick={() => navigate(`/memory/${memory.eventCode}/edit`)}
+                className="bg-orange-500 hover:bg-orange-600 text-white text-sm px-4 py-2 flex items-center gap-2"
+              >
+                <Edit className="h-4 w-4" />
+                Edit Event
+              </Button>
+            )}
           </div>
         </div>
         
