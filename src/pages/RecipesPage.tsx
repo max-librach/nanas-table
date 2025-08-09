@@ -72,8 +72,10 @@ export const RecipesPage: React.FC = () => {
                 onClick={() => navigate(`/recipes/${recipe.slug}`)}
               >
                 <div className="h-40 bg-gradient-to-br from-orange-100 to-pink-100 flex items-center justify-center">
-                  {/* Show thumbnail if available */}
-                  {recipe.photoUrls && recipe.photoUrls.length > 0 ? (
+                  {/* Show cover photo if set, otherwise first photo, otherwise tagged photo */}
+                  {recipe.coverPhotoUrl ? (
+                    <img src={recipe.coverPhotoUrl} alt={recipe.title} className="h-full w-full object-cover" />
+                  ) : recipe.photoUrls && recipe.photoUrls.length > 0 ? (
                     <img src={recipe.photoUrls[0]} alt={recipe.title} className="h-full w-full object-cover" />
                   ) : thumbnails[recipe.id] ? (
                     <img src={thumbnails[recipe.id]} alt={recipe.title} className="h-full w-full object-cover" />

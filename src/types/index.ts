@@ -73,5 +73,6 @@ export interface Recipe {
   createdByName: string;
   createdAt: string;
   photoUrls: string[];
+  coverPhotoUrl?: string;
   slug: string;
 }

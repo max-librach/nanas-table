@@ -126,6 +126,21 @@ export const RecipeDetailPage: React.FC = () => {
     }
   };
 
+  const handleSetCoverPhoto = async (photoUrl: string) => {
+    if (!recipe || !user) return;
+
+    try {
+      // Update recipe with new cover photo URL
+      await updateRecipe(recipe.id, { coverPhotoUrl: photoUrl });
+      
+      // Update local state
+      setRecipe((prev: any) => ({ ...prev, coverPhotoUrl: photoUrl }));
+    } catch (error) {
+      console.error('Error setting cover photo:', error);
+      alert('Failed to set cover photo. Please try again.');
+    }
+  };
+
   // Helper to format YYYY-MM-DD as Month Day, Year
   function formatDateString(dateStr: string | undefined) {
     if (!dateStr) return '';
@@ -208,10 +223,48 @@ export const RecipeDetailPage: React.FC = () => {
           </div>
           <div className="flex gap-4 flex-wrap">
             {recipe.photoUrls && recipe.photoUrls.length > 0 && recipe.photoUrls.map((url: string, i: number) => (
-              <img key={i} src={url} alt={`Recipe photo ${i + 1}`} className="rounded-lg w-40 h-32 object-cover bg-gray-100" />
+              <div key={i} className="relative group">
+                <img 
+                  src={url} 
+                  alt={`Recipe photo ${i + 1}`} 
+                  className="rounded-lg w-40 h-32 object-cover bg-gray-100" 
+                />
+                {recipe.coverPhotoUrl === url && (
+                  <div className="absolute top-2 left-2 bg-orange-500 text-white text-xs px-2 py-1 rounded">
+                    Cover
+                  </div>
+                )}
+                {user && recipe.coverPhotoUrl !== url && (
+                  <button
+                    onClick={() => handleSetCoverPhoto(url)}
+                    className="absolute bottom-2 left-2 bg-black/70 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity"
+                  >
+                    Set as Cover
+                  </button>
+                )}
+              </div>
             ))}
             {photos.map((photo, i) => (
-              <img key={photo.id} src={photo.fileUrl} alt={photo.caption || `Recipe photo ${i + 1}`} className="rounded-lg w-40 h-32 object-cover bg-gray-100" />
+              <div key={photo.id} className="relative group">
+                <img 
+                  src={photo.fileUrl} 
+                  alt={photo.caption || `Recipe photo ${i + 1}`} 
+                  className="rounded-lg w-40 h-32 object-cover bg-gray-100" 
+                />
+                {recipe.coverPhotoUrl === photo.fileUrl && (
+                  <div className="absolute top-2 left-2 bg-orange-500 text-white text-xs px-2 py-1 rounded">
+                    Cover
+                  </div>
+                )}
+                {user && recipe.coverPhotoUrl !== photo.fileUrl && (
+                  <button
+                    onClick={() => handleSetCoverPhoto(photo.fileUrl)}
+                    className="absolute bottom-2 left-2 bg-black/70 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity"
+                  >
+                    Set as Cover
+                  </button>
+                )}
+              </div>
             ))}
             {(!recipe.photoUrls || recipe.photoUrls.length === 0) && photos.length === 0 && (
               <span className="text-gray-400">No photos yet.</span>
