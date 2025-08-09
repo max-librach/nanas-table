@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { getRecipeBySlug, getMediaByRecipeId, getMemoriesByRecipeId, getMemory, getRecipeComments, addRecipeComment } from '../services/firebaseService';
+import { getRecipeBySlug, getMediaByRecipeId, getMemoriesByRecipeId, getMemory, getRecipeComments, addRecipeComment, updateRecipe } from '../services/firebaseService';
 import { format } from 'date-fns';
 import { useAuth } from '../contexts/AuthContext';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { storage } from '../firebase/config';
 
 export const RecipeDetailPage: React.FC = () => {
   const { slug } = useParams();
@@ -31,7 +33,7 @@ export const RecipeDetailPage: React.FC = () => {
           // Find all unique memoryIds from media tagged with this recipe
           const mediaMemoryIds = Array.from(new Set(mediaData.map(m => m.memoryId).filter(Boolean)));
           // Fetch those memories
-          const mediaMemories = await Promise.all(mediaMemoryIds.map(id => getMemory(id)));
+          const mediaMemories = await Promise.all(mediaMemoryIds.map(id => getMemory(id as string)));
           // Merge with memoriesData (avoid duplicates by id)
           const allMemoriesMap: { [id: string]: any } = {};
           for (const mem of [...memoriesData, ...mediaMemories]) {
@@ -90,6 +92,37 @@ export const RecipeDetailPage: React.FC = () => {
       } catch (err) {
         setCommentError('Failed to save comment. Please try again.');
       }
+    }
+  };
+
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (!files.length || !recipe || !user) return;
+
+    try {
+      const uploadPromises = files.map(async (file) => {
+        // Upload to Firebase Storage
+        const fileName = `recipes/${recipe.id}/${Date.now()}_${file.name}`;
+        const storageRef = ref(storage, fileName);
+        const uploadResult = await uploadBytes(storageRef, file);
+        const downloadURL = await getDownloadURL(uploadResult.ref);
+        return downloadURL;
+      });
+
+      const newPhotoUrls = await Promise.all(uploadPromises);
+      
+      // Update recipe with new photo URLs
+      const updatedPhotoUrls = [...(recipe.photoUrls || []), ...newPhotoUrls];
+      await updateRecipe(recipe.id, { photoUrls: updatedPhotoUrls });
+      
+      // Update local state
+      setRecipe((prev: any) => ({ ...prev, photoUrls: updatedPhotoUrls }));
+      
+      // Reset file input
+      e.target.value = '';
+    } catch (error) {
+      console.error('Error uploading photos:', error);
+      alert('Failed to upload photos. Please try again.');
     }
   };
 
@@ -152,7 +185,27 @@ export const RecipeDetailPage: React.FC = () => {
         </div>
         {/* Photos */}
         <div className="mb-6">
-          <h2 className="font-semibold text-gray-700 mb-2">Photos</h2>
+          <div className="flex items-center justify-between mb-2">
+            <h2 className="font-semibold text-gray-700">Photos</h2>
+            {user && (
+              <div>
+                <input
+                  type="file"
+                  id="recipe-photo-upload"
+                  accept="image/*"
+                  multiple
+                  className="hidden"
+                  onChange={handlePhotoUpload}
+                />
+                <label
+                  htmlFor="recipe-photo-upload"
+                  className="bg-orange-500 hover:bg-orange-600 text-white text-sm px-3 py-1 rounded cursor-pointer inline-flex items-center gap-1"
+                >
+                  📷 Add Photos
+                </label>
+              </div>
+            )}
+          </div>
           <div className="flex gap-4 flex-wrap">
             {recipe.photoUrls && recipe.photoUrls.length > 0 && recipe.photoUrls.map((url: string, i: number) => (
               <img key={i} src={url} alt={`Recipe photo ${i + 1}`} className="rounded-lg w-40 h-32 object-cover bg-gray-100" />
@@ -168,12 +221,7 @@ export const RecipeDetailPage: React.FC = () => {
         {/* Instructions */}
         <div className="mb-6">
           <h2 className="font-semibold text-gray-700 mb-2 flex items-center gap-2"><span role="img" aria-label="instructions">🍴</span> Instructions</h2>
-          <div className="prose max-w-none" style={{
-            // Fallback styles for lists if prose is not enough
-            ul: { paddingLeft: '1.5em', listStyle: 'disc inside' },
-            ol: { paddingLeft: '1.5em', listStyle: 'decimal inside' },
-            li: { marginBottom: '0.25em' }
-          }} dangerouslySetInnerHTML={{ __html: recipe.instructions }} />
+          <div className="prose max-w-none" dangerouslySetInnerHTML={{ __html: recipe.instructions }} />
         </div>
         {/* Used in Events */}
         <div className="mb-6">

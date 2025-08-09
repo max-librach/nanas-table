@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Camera, Heart, Save, Video } from 'lucide-react';
+import { ArrowLeft, Save } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Input } from '../components/ui/input';
@@ -10,9 +10,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Checkbox } from '../components/ui/checkbox';
 import { Toast } from '../components/Toast';
 import { FAMILY_MEMBERS_LIST, HOLIDAYS } from '../constants';
-import { getMemoryByEventCode, updateMemory } from '../services/firebaseService';
+import { getMemoryByEventCode, updateMemory, getAllRecipes } from '../services/firebaseService';
 import { useAuth } from '../contexts/AuthContext';
 import { Memory } from '../types';
+import { RecipeTagSelector } from '../components/RecipeTagSelector';
 
 export const EditMemoryPage: React.FC = () => {
   const { eventCode } = useParams<{ eventCode: string }>();
@@ -46,6 +47,13 @@ export const EditMemoryPage: React.FC = () => {
   );
 
   const [otherAttendee, setOtherAttendee] = useState('');
+  
+  // Recipe-related state
+  const [allRecipes, setAllRecipes] = useState<{ id: string; title: string }[]>([]);
+  const [mealRecipeIds, setMealRecipeIds] = useState<string[]>([]);
+  const [dessertRecipeIds, setDessertRecipeIds] = useState<string[]>([]);
+  const [showMealRecipeTag, setShowMealRecipeTag] = useState(false);
+  const [showDessertRecipeTag, setShowDessertRecipeTag] = useState(false);
 
   // Load memory data
   useEffect(() => {
@@ -53,6 +61,11 @@ export const EditMemoryPage: React.FC = () => {
       loadMemory();
     }
   }, [id]);
+
+  // Load recipes
+  useEffect(() => {
+    getAllRecipes().then(setAllRecipes);
+  }, []);
 
   const loadMemory = async () => {
     if (!id) return;
@@ -74,8 +87,8 @@ export const EditMemoryPage: React.FC = () => {
         date: memoryData.date,
         occasion: memoryData.occasion,
         holiday: memoryData.holiday || '',
-        holidayDescription: memoryData.holidayDescription || '',
-        meal: memoryData.meal || memoryData.food || '',
+        holidayDescription: (memoryData as any).holidayDescription || '',
+        meal: memoryData.meal || (memoryData as any).food || '',
         dessert: memoryData.dessert || '',
         celebration: memoryData.celebration || '',
         notes: memoryData.notes.map(note => note.text).join('\n\n') || ''
@@ -97,6 +110,12 @@ export const EditMemoryPage: React.FC = () => {
       }
       
       setAttendees(attendeeState);
+
+      // Set recipe data
+      setMealRecipeIds((memoryData as any).mealRecipeIds || []);
+      setDessertRecipeIds((memoryData as any).dessertRecipeIds || []);
+      setShowMealRecipeTag(((memoryData as any).mealRecipeIds || []).length > 0);
+      setShowDessertRecipeTag(((memoryData as any).dessertRecipeIds || []).length > 0);
     } catch (error) {
       console.error('Error loading memory:', error);
       setToast({ message: 'Failed to load memory', type: 'error' });
@@ -157,7 +176,9 @@ export const EditMemoryPage: React.FC = () => {
       const updateData = {
         ...formData,
         attendees: selectedAttendees,
-        otherAttendees: attendees['Other'] && otherAttendee.trim() ? otherAttendee.trim() : undefined
+        otherAttendees: attendees['Other'] && otherAttendee.trim() ? otherAttendee.trim() : undefined,
+        mealRecipeIds,
+        dessertRecipeIds
       };
       
       // Remove undefined values
@@ -386,6 +407,28 @@ export const EditMemoryPage: React.FC = () => {
                       className="border-gray-200 focus:border-orange-300 focus:ring-orange-200 min-h-[60px]"
                       required
                     />
+                    {/* Meal Recipe Checkbox */}
+                    <div className="mt-2">
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          id="meal-recipe-checkbox"
+                          checked={showMealRecipeTag}
+                          onChange={e => setShowMealRecipeTag(e.target.checked)}
+                        />
+                        <label htmlFor="meal-recipe-checkbox" className="text-sm text-gray-700 cursor-pointer">
+                          Did the meal contain a family recipe?
+                        </label>
+                      </div>
+                      {showMealRecipeTag && (
+                        <RecipeTagSelector
+                          allRecipes={allRecipes}
+                          selectedRecipeIds={mealRecipeIds}
+                          onChange={setMealRecipeIds}
+                          hideCheckbox={true}
+                        />
+                      )}
+                    </div>
                     <Label htmlFor="dessert" className="text-gray-700">
                       Dessert <span className="text-red-500">*</span>
                     </Label>
@@ -397,6 +440,30 @@ export const EditMemoryPage: React.FC = () => {
                       className="border-gray-200 focus:border-orange-300 focus:ring-orange-200 min-h-[40px]"
                       required
                     />
+                    {/* Dessert Recipe Checkbox */}
+                    <div className="mt-2">
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          id="dessert-recipe-checkbox"
+                          checked={showDessertRecipeTag}
+                          onChange={e => setShowDessertRecipeTag(e.target.checked)}
+                        />
+                        <label htmlFor="dessert-recipe-checkbox" className="text-sm text-gray-700 cursor-pointer">
+                          Did dessert contain a family recipe?
+                        </label>
+                      </div>
+                      {showDessertRecipeTag && (
+                        <div className="mb-6">
+                          <RecipeTagSelector
+                            allRecipes={allRecipes}
+                            selectedRecipeIds={dessertRecipeIds}
+                            onChange={setDessertRecipeIds}
+                            hideCheckbox={true}
+                          />
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
